@@ -1,0 +1,130 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@theme inline {
+  --font-sans: "Reem Kufi Fun", system-ui, sans-serif;
+  --font-serif: "Reem Kufi Fun", system-ui, sans-serif;
+  --font-script: "Reem Kufi Fun", system-ui, sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-burgundy: var(--burgundy);
+  --color-blush: var(--blush);
+  --color-blush-deep: var(--blush-deep);
+  --color-blush-nav: var(--blush-nav);
+  --color-plum: var(--plum);
+}
+
+:root {
+  /* Brand — vibrant rose from Figma PDP */
+  --burgundy: #d65588;
+  --plum: #9c4570;
+  --footer-plum: #8e3d62;
+  --footer-accent: #f5b8cc;
+
+  /* Surfaces */
+  --background: #ffffff;
+  --foreground: #2d2d2d;
+  --blush: #fce8ef;
+  --blush-deep: #f5c6d8;
+  --blush-nav: rgb(255 240 245 / 0.96);
+  --blush-section: #fff0f5;
+  --image-tint: #fff5f8;
+
+  /* UI */
+  --primary: var(--burgundy);
+  --primary-foreground: #ffffff;
+  --muted: var(--blush-section);
+  --muted-foreground: #6b7280;
+  --border: rgb(214 85 136 / 0.14);
+  --gold: #d65588;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: "Reem Kufi Fun", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  .font-serif {
+    font-family: "Reem Kufi Fun", system-ui, sans-serif;
+    font-weight: 600;
+  }
+}
+
+@layer utilities {
+  .bg-blush-nav {
+    background-color: var(--blush-nav);
+  }
+  .bg-blush-section {
+    background-color: var(--blush-section);
+  }
+  .bg-blush-card {
+    background-color: var(--blush);
+  }
+  .bg-image-tint {
+    background-color: var(--image-tint);
+  }
+  .text-burgundy {
+    color: var(--burgundy);
+  }
+  .bg-burgundy {
+    background-color: var(--burgundy);
+  }
+  .bg-plum {
+    background-color: var(--footer-plum);
+  }
+  .text-footer-label {
+    color: var(--footer-accent);
+  }
+  .fill-burgundy {
+    fill: var(--burgundy);
+  }
+  .font-script {
+    font-family: "Reem Kufi Fun", system-ui, sans-serif;
+    font-weight: 600;
+  }
+  .text-gold {
+    color: var(--gold);
+  }
+
+  @keyframes reel-marquee {
+    from {
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      transform: translate3d(-50%, 0, 0);
+    }
+  }
+
+  .reel-marquee-track {
+    animation: reel-marquee 120s linear infinite;
+    will-change: transform;
+  }
+
+  .reel-marquee:hover .reel-marquee-track {
+    animation-play-state: paused;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reel-marquee-track {
+      animation: none;
+    }
+  }
+}
