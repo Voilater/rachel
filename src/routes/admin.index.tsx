@@ -24,10 +24,12 @@ function AdminDashboardPage() {
 
   return (
     <div>
-      <h1 className="font-serif text-3xl text-burgundy">Dashboard</h1>
-      <p className="mt-2 text-muted-foreground">Studio overview — orders &amp; inventory</p>
+      <h1 className="font-serif text-2xl text-burgundy md:text-3xl">Dashboard</h1>
+      <p className="mt-2 text-sm text-muted-foreground md:text-base">
+        Studio overview — orders &amp; inventory
+      </p>
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard label="Open orders" value={String(pendingCount)} highlight />
         <StatCard label="Total orders" value={String(recentOrders.length)} />
         <StatCard label="Total SKUs" value={String(products.length)} />

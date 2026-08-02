@@ -12,6 +12,9 @@ export default defineConfig({
     tsConfigPaths(),
     tanstackStart({ srcDirectory: "src" }),
     viteReact(),
-    nitro({ preset: "vercel" }),
+    nitro({
+      preset: process.env.NITRO_PRESET ?? "node-server",
+      serveStatic: true,
+    }),
   ],
 });

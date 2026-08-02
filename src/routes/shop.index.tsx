@@ -12,6 +12,8 @@ import {
 } from "@/lib/shop-filters";
 import { searchShopProducts } from "@/lib/shop-search";
 import { toInventoryItem, useInventory, type InventoryItem } from "@/lib/inventory-store";
+import { staticInventoryItems } from "@/lib/static-catalog";
+import { isStaticSite } from "@/lib/static-site";
 import { siteConfig } from "@/lib/site-data";
 import { listProducts } from "@/server/products";
 import { cn } from "@/lib/utils";
@@ -27,6 +29,10 @@ export const Route = createFileRoute("/shop/")({
     q: typeof search.q === "string" ? search.q : "",
   }),
   loader: async () => {
+    if (isStaticSite) {
+      return { products: staticInventoryItems, error: null as string | null };
+    }
+
     try {
       const rows = await listProducts();
       return {

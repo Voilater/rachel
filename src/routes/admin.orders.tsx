@@ -54,8 +54,8 @@ function AdminOrdersPage() {
     <div>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-serif text-3xl text-burgundy">Orders</h1>
-          <p className="mt-2 text-muted-foreground">
+          <h1 className="font-serif text-2xl text-burgundy md:text-3xl">Orders</h1>
+          <p className="mt-2 text-sm text-muted-foreground md:text-base">
             {orders.length} order{orders.length !== 1 ? "s" : ""} from customers
           </p>
         </div>
@@ -72,7 +72,7 @@ function AdminOrdersPage() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as OrderStatus | "all")}
-          className="rounded-lg border border-border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
+          className="w-full rounded-lg border border-border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-burgundy/20 sm:w-auto"
         >
           <option value="all">All statuses</option>
           {STATUS_OPTIONS.map((s) => (
@@ -135,9 +135,9 @@ function OrderCard({
 
   return (
     <article className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
-      <div className="flex flex-wrap items-center gap-4 p-4 md:p-5">
-        <div className="flex min-w-0 flex-1 items-center gap-4">
-          <div className="flex -space-x-2">
+      <div className="flex flex-col gap-4 p-4 md:p-5">
+        <div className="flex min-w-0 items-start gap-4">
+          <div className="flex -space-x-2 shrink-0">
             {order.items.slice(0, 3).map((item, i) => (
               <img
                 key={`${item.name}-${i}`}
@@ -171,48 +171,54 @@ function OrderCard({
                 </span>
               )}
             </div>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-sm text-muted-foreground break-words">
               {order.customer.name} · {order.customer.email}
             </p>
             <p className="text-xs text-muted-foreground">{formatOrderDate(order.createdAt)}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="text-right">
-            <p className="font-serif text-xl font-semibold text-burgundy">
-              {formatPrice(order.total)}
-            </p>
-            <p className="text-xs text-muted-foreground">{itemCount} item{itemCount !== 1 ? "s" : ""}</p>
+        <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center justify-between gap-4 sm:justify-start">
+            <div>
+              <p className="font-serif text-xl font-semibold text-burgundy">
+                {formatPrice(order.total)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {itemCount} item{itemCount !== 1 ? "s" : ""}
+              </p>
+            </div>
+
+            <select
+              value={order.status}
+              onChange={(e) => onStatusChange(e.target.value as OrderStatus)}
+              className="max-w-[11rem] rounded-lg border border-border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-burgundy/20 sm:max-w-none"
+              aria-label="Order status"
+            >
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s} value={s}>{orderStatusLabels[s]}</option>
+              ))}
+            </select>
           </div>
 
-          <select
-            value={order.status}
-            onChange={(e) => onStatusChange(e.target.value as OrderStatus)}
-            className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
-            aria-label="Order status"
-          >
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s} value={s}>{orderStatusLabels[s]}</option>
-            ))}
-          </select>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onViewDetail}
+              className="flex-1 rounded-lg border border-border px-3 py-2 text-xs font-bold uppercase tracking-wider text-burgundy hover:bg-blush-section sm:flex-none"
+            >
+              Details
+            </button>
 
-          <button
-            type="button"
-            onClick={onViewDetail}
-            className="hidden rounded-lg border border-border px-3 py-2 text-xs font-bold uppercase tracking-wider text-burgundy hover:bg-blush-section sm:block"
-          >
-            Details
-          </button>
-
-          <button
-            type="button"
-            onClick={onToggle}
-            className="rounded-lg p-2 text-muted-foreground hover:bg-blush-section"
-            aria-label={expanded ? "Collapse" : "Expand"}
-          >
-            {expanded ? <ChevronUp className="size-5" /> : <ChevronDown className="size-5" />}
-          </button>
+            <button
+              type="button"
+              onClick={onToggle}
+              className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-blush-section"
+              aria-label={expanded ? "Collapse" : "Expand"}
+            >
+              {expanded ? <ChevronUp className="size-5" /> : <ChevronDown className="size-5" />}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -271,15 +277,15 @@ function OrderDetailModal({
   onStatusChange: (status: OrderStatus) => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
       <button
         type="button"
         className="absolute inset-0 bg-black/40"
         onClick={onClose}
         aria-label="Close"
       />
-      <div className="relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+      <div className="relative flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl sm:rounded-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-border px-4 py-4 sm:px-6">
           <div>
             <h2 className="font-serif text-xl text-burgundy">Order #{order.orderNumber}</h2>
             <p className="text-sm text-muted-foreground">{formatOrderDate(order.createdAt)}</p>
@@ -289,7 +295,7 @@ function OrderDetailModal({
           </button>
         </div>
 
-        <div className="overflow-y-auto px-6 py-5">
+        <div className="overflow-y-auto px-4 py-5 sm:px-6">
           <div className="flex flex-wrap items-center gap-3">
             <span
               className={`rounded-full px-3 py-1 text-xs font-semibold ${orderStatusStyles[order.status]}`}
@@ -341,7 +347,7 @@ function OrderDetailModal({
             {order.items.map((item, index) => (
               <li
                 key={`${item.name}-${index}`}
-                className="flex gap-4 rounded-xl border border-border p-3"
+                className="flex flex-col gap-3 rounded-xl border border-border p-3 sm:flex-row sm:items-start"
               >
                 <img src={item.image} alt="" className="size-16 rounded-lg object-cover" />
                 <div className="min-w-0 flex-1">
@@ -351,7 +357,7 @@ function OrderDetailModal({
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">Qty: {item.quantity}</p>
                 </div>
-                <p className="font-semibold">{formatPrice(item.linePrice * item.quantity)}</p>
+                <p className="font-semibold sm:text-right">{formatPrice(item.linePrice * item.quantity)}</p>
               </li>
             ))}
           </ul>

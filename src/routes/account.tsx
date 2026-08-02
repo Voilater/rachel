@@ -13,12 +13,21 @@ import { fetchProfileForEmail } from "@/server/cart";
 import { getAccountProfile, saveAccountProfile } from "@/server/profile";
 import type { AccountProfileDto } from "@/server/user-types";
 import { cn } from "@/lib/utils";
+import { emptyAccountStatus, isStaticSite } from "@/lib/static-site";
 
 export const Route = createFileRoute("/account")({
   head: () => ({
     meta: [{ title: `My Account — ${siteConfig.name}` }],
   }),
   loader: async () => {
+    if (isStaticSite) {
+      return {
+        authStatus: emptyAccountStatus,
+        sessionUser: null,
+        profile: null,
+      };
+    }
+
     const authStatus = await getAccountStatus();
     const sessionUser = await getSessionUser();
     const profile = await getAccountProfile();

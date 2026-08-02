@@ -41,8 +41,8 @@ function AdminLoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-blush-section px-4 py-12">
-      <div className="w-full max-w-md rounded-2xl border border-border bg-white p-8 shadow-sm">
+    <div className="flex min-h-screen items-center justify-center bg-blush-section px-4 py-8 sm:py-12">
+      <div className="w-full max-w-md rounded-2xl border border-border bg-white p-6 shadow-sm sm:p-8">
         <div className="flex items-center gap-3">
           <div className="flex size-10 items-center justify-center rounded-full bg-burgundy/10">
             <Shield className="size-5 text-burgundy" />

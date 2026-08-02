@@ -6,7 +6,12 @@
   "scripts": {
     "dev": "NODE_OPTIONS='--max-old-space-size=2048' vite dev",
     "build": "vite build",
+    "build:static": "STATIC_BUILD=1 VITE_STATIC_SITE=true vite build --config vite.config.static.ts && node scripts/assemble-static-site.mjs",
+    "start": "node .output/server/index.mjs",
+    "preview:static": "npx serve dist/static-site -p 4173",
     "preview": "vite preview",
+    "docker:up": "docker compose up --build",
+    "docker:db": "docker compose up -d mysql",
     "db:setup": "node --env-file=.env scripts/setup-db.mjs",
     "db:sync-catalog": "node --env-file=.env scripts/sync-catalog.mjs",
     "db:users": "node --env-file=.env scripts/list-users.mjs",

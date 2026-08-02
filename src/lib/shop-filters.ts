@@ -116,27 +116,279 @@ const SHOP_IMAGES = [
   "https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=600&h=600&fit=crop",
 ];
 
-type TaggedProduct = ShopProduct & {
+type ProductFilterMetadata = {
   colorTags: ProductColorTag[];
   materials: ProductMaterial[];
   occasions: ProductOccasion[];
   availability: ProductAvailability;
 };
 
+type TaggedProduct = ShopProduct & ProductFilterMetadata;
+
+const CORE_PRODUCT_FILTER_TAGS: Record<string, ProductFilterMetadata> = {
+  "ethereal-rose-bracelet": {
+    colorTags: ["Rose"],
+    materials: ["Quartz", "Gold"],
+    occasions: ["Everyday", "Gifting"],
+    availability: "In Stock",
+  },
+  "celestial-pearl-drops": {
+    colorTags: ["Pearl", "Gold"],
+    materials: ["Gold", "Pearl"],
+    occasions: ["Evening", "Bridal"],
+    availability: "In Stock",
+  },
+  "azure-horizon-layer": {
+    colorTags: ["Pearl", "Azure"],
+    materials: ["Pearl", "Sterling Silver"],
+    occasions: ["Evening", "Gifting"],
+    availability: "In Stock",
+  },
+  "midnight-glow-band": {
+    colorTags: ["Onyx"],
+    materials: ["Gold"],
+    occasions: ["Everyday", "Evening"],
+    availability: "In Stock",
+  },
+  "artisan-starter-kit": {
+    colorTags: ["Rose", "Pearl"],
+    materials: ["Quartz", "Pearl"],
+    occasions: ["Gifting", "Everyday"],
+    availability: "In Stock",
+  },
+  "sun-kissed-choker": {
+    colorTags: ["Gold"],
+    materials: ["Gold"],
+    occasions: ["Everyday", "Evening"],
+    availability: "Made to Order",
+  },
+  "aura-layer-necklace": {
+    colorTags: ["Gold"],
+    materials: ["Gold"],
+    occasions: ["Evening", "Bridal"],
+    availability: "In Stock",
+  },
+  "aura-layer-bracelets": {
+    colorTags: ["Gold"],
+    materials: ["Gold"],
+    occasions: ["Evening", "Gifting"],
+    availability: "In Stock",
+  },
+  "emerald-cascade": {
+    colorTags: ["Azure"],
+    materials: ["Gold"],
+    occasions: ["Evening"],
+    availability: "In Stock",
+  },
+  "petite-pearl-choker": {
+    colorTags: ["Pearl", "Gold"],
+    materials: ["Pearl", "Gold"],
+    occasions: ["Everyday", "Bridal"],
+    availability: "In Stock",
+  },
+  "lapis-lazuli": {
+    colorTags: ["Azure"],
+    materials: ["Quartz"],
+    occasions: ["Gifting", "Everyday"],
+    availability: "In Stock",
+  },
+  moonstone: {
+    colorTags: ["Pearl"],
+    materials: ["Quartz"],
+    occasions: ["Everyday", "Gifting"],
+    availability: "In Stock",
+  },
+  "african-turquoise": {
+    colorTags: ["Azure"],
+    materials: ["Quartz"],
+    occasions: ["Everyday", "Gifting"],
+    availability: "In Stock",
+  },
+  "rose-gold-elements": {
+    colorTags: ["Rose", "Gold"],
+    materials: ["Gold"],
+    occasions: ["Gifting", "Everyday"],
+    availability: "In Stock",
+  },
+};
+
+const COLOR_LABEL_MAP: Record<string, ProductColorTag> = {
+  rose: "Rose",
+  pearl: "Pearl",
+  gold: "Gold",
+  onyx: "Onyx",
+  azure: "Azure",
+  sky: "Azure",
+};
+
+const COLOR_KEYWORDS: [RegExp, ProductColorTag][] = [
+  [/\brose\b|blush/i, "Rose"],
+  [/\bpearl\b|moonlit|ivory/i, "Pearl"],
+  [/\bgold\b|golden|gilded|vermeil/i, "Gold"],
+  [/\bonyx\b|midnight|eclipse/i, "Onyx"],
+  [/\bazure\b|turquoise|ocean|tide|lapis|emerald|sky\b|blue\b/i, "Azure"],
+];
+
+const MATERIAL_KEYWORDS: [RegExp, ProductMaterial][] = [
+  [/\bsterling silver\b|\bsilver\b/i, "Sterling Silver"],
+  [/\brose quartz\b|\bquartz\b/i, "Quartz"],
+  [/\bpearl\b/i, "Pearl"],
+  [/\bgold\b|golden|gilded|vermeil/i, "Gold"],
+];
+
+const OCCASION_KEYWORDS: [RegExp, ProductOccasion][] = [
+  [/\beveryday\b|daily|day-to-night/i, "Everyday"],
+  [/\bevening\b|dusk|night/i, "Evening"],
+  [/\bbridal\b|wedding|ceremon/i, "Bridal"],
+  [/\bgift\b|gifting/i, "Gifting"],
+];
+
+const CATEGORY_DEFAULTS: Partial<Record<ShopCategory, Partial<ProductFilterMetadata>>> = {
+  "DIY Kits": {
+    occasions: ["Gifting", "Everyday"],
+    materials: ["Quartz"],
+  },
+};
+
+let productFilterLookup: Map<string, ProductFilterMetadata> | null = null;
+
+function getProductFilterLookup(): Map<string, ProductFilterMetadata> {
+  if (productFilterLookup) return productFilterLookup;
+
+  productFilterLookup = new Map<string, ProductFilterMetadata>();
+
+  for (const [id, meta] of Object.entries(CORE_PRODUCT_FILTER_TAGS)) {
+    productFilterLookup.set(id, meta);
+  }
+
+  for (const product of additionalShopProducts) {
+    productFilterLookup.set(product.id, {
+      colorTags: product.colorTags,
+      materials: product.materials,
+      occasions: product.occasions,
+      availability: product.availability,
+    });
+  }
+
+  return productFilterLookup;
+}
+
+function productSearchText(product: ShopProduct): string {
+  return [
+    product.name,
+    product.description,
+    product.longDescription,
+    product.badge,
+    product.cartSubtitle,
+    product.category,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function inferColorTags(product: ShopProduct): ProductColorTag[] {
+  const tags = new Set<ProductColorTag>();
+
+  for (const color of product.colors ?? []) {
+    const mapped = COLOR_LABEL_MAP[color.label.toLowerCase()] ?? COLOR_LABEL_MAP[color.id.toLowerCase()];
+    if (mapped) tags.add(mapped);
+  }
+
+  const text = productSearchText(product);
+  for (const [pattern, tag] of COLOR_KEYWORDS) {
+    if (pattern.test(text)) tags.add(tag);
+  }
+
+  return [...tags];
+}
+
+function inferMaterials(product: ShopProduct): ProductMaterial[] {
+  const materials = new Set<ProductMaterial>();
+  const text = productSearchText(product);
+
+  for (const [pattern, material] of MATERIAL_KEYWORDS) {
+    if (pattern.test(text)) materials.add(material);
+  }
+
+  return [...materials];
+}
+
+function inferOccasions(product: ShopProduct): ProductOccasion[] {
+  const occasions = new Set<ProductOccasion>();
+  const text = productSearchText(product);
+
+  for (const [pattern, occasion] of OCCASION_KEYWORDS) {
+    if (pattern.test(text)) occasions.add(occasion);
+  }
+
+  const categoryDefaults = CATEGORY_DEFAULTS[product.category];
+  for (const occasion of categoryDefaults?.occasions ?? []) {
+    occasions.add(occasion);
+  }
+
+  return [...occasions];
+}
+
+function inferAvailability(product: ShopProduct): ProductAvailability {
+  const text = productSearchText(product).toLowerCase();
+  if (text.includes("made to order") || text.includes("bespoke")) {
+    return "Made to Order";
+  }
+
+  const stock = (product as { stock?: number }).stock;
+  if (stock !== undefined && stock <= 0) {
+    return "Made to Order";
+  }
+
+  return "In Stock";
+}
+
+function pickTagList<T extends string>(
+  explicit: T[] | undefined,
+  catalog: T[] | undefined,
+  inferred: T[],
+): T[] {
+  if (explicit?.length) return explicit;
+  if (catalog?.length) return catalog;
+  return inferred;
+}
+
+function inferProductFilterMetadata(product: ShopProduct): ProductFilterMetadata {
+  return {
+    colorTags: inferColorTags(product),
+    materials: inferMaterials(product),
+    occasions: inferOccasions(product),
+    availability: inferAvailability(product),
+  };
+}
+
+export function resolveProductFilterMetadata(product: ShopProduct): ProductFilterMetadata {
+  const tagged = product as Partial<TaggedProduct>;
+  const catalog = getProductFilterLookup().get(product.id);
+  const inferred = inferProductFilterMetadata(product);
+
+  return {
+    colorTags: pickTagList(tagged.colorTags, catalog?.colorTags, inferred.colorTags),
+    materials: pickTagList(tagged.materials, catalog?.materials, inferred.materials),
+    occasions: pickTagList(tagged.occasions, catalog?.occasions, inferred.occasions),
+    availability: tagged.availability ?? catalog?.availability ?? inferred.availability,
+  };
+}
+
 export function getProductColorTags(product: ShopProduct): ProductColorTag[] {
-  return (product as TaggedProduct).colorTags ?? [];
+  return resolveProductFilterMetadata(product).colorTags;
 }
 
 export function getProductMaterials(product: ShopProduct): ProductMaterial[] {
-  return (product as TaggedProduct).materials ?? [];
+  return resolveProductFilterMetadata(product).materials;
 }
 
 export function getProductOccasions(product: ShopProduct): ProductOccasion[] {
-  return (product as TaggedProduct).occasions ?? [];
+  return resolveProductFilterMetadata(product).occasions;
 }
 
 export function getProductAvailability(product: ShopProduct): ProductAvailability {
-  return (product as TaggedProduct).availability ?? "In Stock";
+  return resolveProductFilterMetadata(product).availability;
 }
 
 export function matchesPriceRange(price: number, range: PriceRangeId): boolean {
@@ -469,47 +721,14 @@ export const additionalShopProducts: TaggedProduct[] = [
 ];
 
 export function tagCoreProducts(products: ShopProduct[]): TaggedProduct[] {
-  const tagsById: Record<string, Omit<TaggedProduct, keyof ShopProduct>> = {
-    "ethereal-rose-bracelet": {
-      colorTags: ["Rose"],
-      materials: ["Quartz", "Gold"],
-      occasions: ["Everyday", "Gifting"],
-      availability: "In Stock",
-    },
-    "celestial-pearl-drops": {
-      colorTags: ["Pearl", "Gold"],
-      materials: ["Gold", "Pearl"],
-      occasions: ["Evening", "Bridal"],
-      availability: "In Stock",
-    },
-    "azure-horizon-layer": {
-      colorTags: ["Pearl", "Azure"],
-      materials: ["Pearl", "Sterling Silver"],
-      occasions: ["Evening", "Gifting"],
-      availability: "In Stock",
-    },
-    "midnight-glow-band": {
-      colorTags: ["Onyx"],
-      materials: ["Gold"],
-      occasions: ["Everyday", "Evening"],
-      availability: "In Stock",
-    },
-    "artisan-starter-kit": {
-      colorTags: ["Rose", "Pearl"],
-      materials: ["Quartz", "Pearl"],
-      occasions: ["Gifting", "Everyday"],
-      availability: "In Stock",
-    },
-    "sun-kissed-choker": {
-      colorTags: ["Gold"],
-      materials: ["Gold"],
-      occasions: ["Everyday", "Evening"],
-      availability: "Made to Order",
-    },
-  };
-
-  return products.map((product) => ({
-    ...product,
-    ...tagsById[product.id],
-  })) as TaggedProduct[];
+  return products.map((product) => {
+    const meta = CORE_PRODUCT_FILTER_TAGS[product.id];
+    return {
+      ...product,
+      colorTags: meta?.colorTags ?? [],
+      materials: meta?.materials ?? [],
+      occasions: meta?.occasions ?? [],
+      availability: meta?.availability ?? "In Stock",
+    };
+  }) as TaggedProduct[];
 }

@@ -17,6 +17,7 @@ import { AuthProvider } from "@/lib/auth";
 import { CartProvider } from "@/lib/cart";
 import { InventoryProvider } from "@/lib/inventory-store";
 import { OrdersProvider } from "@/lib/orders-store";
+import { emptyAccountStatus, isStaticSite } from "@/lib/static-site";
 import { siteConfig } from "@/lib/site-data";
 import { getAccountStatus } from "@/server/auth0";
 import { getSessionUser } from "@/server/session";
@@ -36,6 +37,10 @@ function NotFoundComponent() {
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   loader: async () => {
+    if (isStaticSite) {
+      return { accountStatus: emptyAccountStatus, sessionUser: null };
+    }
+
     try {
       const accountStatus = await getAccountStatus();
       const sessionUser = await getSessionUser();

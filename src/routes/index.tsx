@@ -5,6 +5,8 @@ import { InstagramReelStrip } from "@/components/InstagramReelStrip";
 import { TestimonialCard } from "@/components/TestimonialCard";
 import { VkProductCard } from "@/components/VkProductCard";
 import { PageLayout } from "@/components/layout/PageLayout";
+import { getStaticReelViews } from "@/lib/static-reel-views";
+import { isStaticSite } from "@/lib/static-site";
 import {
   premiumBeads,
   siteConfig,
@@ -24,7 +26,8 @@ export const Route = createFileRoute("/")({
       { name: "description", content: siteConfig.description },
     ],
   }),
-  loader: () => fetchInstagramReelViews(),
+  loader: () =>
+    isStaticSite ? getStaticReelViews() : fetchInstagramReelViews(),
   component: HomePage,
 });
 

@@ -21,11 +21,11 @@ import {
   markLoggedOut,
   clearLocalAuthStorage,
 } from "@/lib/logout-state";
+import { isStaticSite } from "@/lib/static-site";
 import type { AccountStatus } from "@/server/auth0";
 import { verifyAdminLogin } from "@/server/auth";
 import { getSessionUser } from "@/server/session";
 import type { SessionUser } from "@/server/session-resolve";
-import { loginUser, signupUser } from "@/server/users";
 
 interface ClientSession {
   user: ClientUser;
@@ -138,6 +138,12 @@ export function AuthProvider({
   }, [initialSessionUser, initialAccountStatus, applyClientUser]);
 
   const refreshClientSession = useCallback(async () => {
+    if (isStaticSite) {
+      const stored = readClientSession()?.user ?? null;
+      setClientUser(stored);
+      return stored;
+    }
+
     if (isLoggedOutFlagSet()) {
       setClientUser(null);
       writeClientSession(null);
@@ -169,15 +175,23 @@ export function AuthProvider({
   }, [refreshClientSession]);
 
   const signup = useCallback(async (name: string, email: string, password: string) => {
+    if (isStaticSite) {
+      throw new Error("Account signup is not available on the static demo site.");
+    }
     const normalizedEmail = email.trim().toLowerCase();
+    const { signupUser } = await import("@/server/users");
     await signupUser({
       data: { name: name.trim(), email: normalizedEmail, password },
     });
   }, []);
 
   const loginClient = useCallback(async (email: string, password: string) => {
+    if (isStaticSite) {
+      throw new Error("Account login is not available on the static demo site.");
+    }
     clearLoggedOutFlag();
     const normalizedEmail = email.trim().toLowerCase();
+    const { loginUser } = await import("@/server/users");
     const user = await loginUser({ data: { email: normalizedEmail, password } });
     applyClientUser(user);
   }, [applyClientUser]);

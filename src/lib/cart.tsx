@@ -9,7 +9,8 @@ import {
   type ReactNode,
 } from "react";
 
-import type { ShopProduct } from "@/lib/site-data";
+import { hydrateCartItemsLocal } from "@/lib/hydrate-cart-local";
+import { isStaticSite } from "@/lib/static-site";
 import type { StoredCartItem } from "@/server/cart-types";
 import {
   clearCartItems,
@@ -129,6 +130,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const stored = nextItems.map(toStored);
     writeLocalCart(stored);
 
+    if (isStaticSite) return;
+
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       saveCartItems({ data: { guestId: getGuestId(), items: stored } }).catch(() => {});
@@ -150,6 +153,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
     (async () => {
       try {
         const local = readLocalCart();
+
+        if (isStaticSite) {
+          if (local.length > 0) {
+            applyHydratedItems(hydrateCartItemsLocal(local));
+          }
+          return;
+        }
+
         const serverCart = await fetchCart({ data: { guestId: getGuestId() } });
         const mergedMap = new Map<string, StoredCartItem>();
 
@@ -254,7 +265,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const clearCart = useCallback(() => {
     setItems([]);
     writeLocalCart([]);
-    clearCartItems({ data: { guestId: getGuestId() } }).catch(() => {});
+    if (!isStaticSite) {
+      clearCartItems({ data: { guestId: getGuestId() } }).catch(() => {});
+    }
     setIsOpen(false);
   }, []);
 

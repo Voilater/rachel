@@ -18,6 +18,7 @@ import {
   saveConfirmedOrder,
 } from "@/lib/order-confirmation";
 import { useOrders } from "@/lib/orders-store";
+import { isStaticSite } from "@/lib/static-site";
 import { openRazorpayCheckout } from "@/lib/pay-with-razorpay";
 import { formatPrice, siteConfig } from "@/lib/site-data";
 import { getAccountProfile } from "@/server/profile";
@@ -61,6 +62,8 @@ function CheckoutPage() {
     if (clientUser) {
       setFullName(clientUser.name);
     }
+    if (isStaticSite) return;
+
     getAccountProfile()
       .then((profile) => {
         if (!profile) return;
@@ -85,36 +88,30 @@ function CheckoutPage() {
 
     setIsPaying(true);
     try {
-      await openRazorpayCheckout({
-        amount: total,
-        receipt: `vk_${Date.now()}`,
-        customer: {
-          name: fullName.trim(),
-          phone: phone.trim(),
-        },
-        onSuccess: async () => {
-          const orderNumber = generateOrderNumber();
-          const orderItems = items.map((item) => ({
-            name: item.product.name,
-            subtitle: item.subtitle,
-            image: item.product.image,
-            quantity: item.quantity,
-            linePrice: item.linePrice,
-            productId: item.product.id,
-          }));
+      const orderNumber = generateOrderNumber();
+      const orderItems = items.map((item) => ({
+        name: item.product.name,
+        subtitle: item.subtitle,
+        image: item.product.image,
+        quantity: item.quantity,
+        linePrice: item.linePrice,
+        productId: item.product.id,
+      }));
 
-          saveConfirmedOrder({
-            orderNumber,
-            deliveryMethod: delivery,
-            deliveryLabel: getDeliveryLabel(delivery),
-            estimatedDelivery: getEstimatedDelivery(delivery),
-            subtotal,
-            shipping,
-            tax,
-            total,
-            items: orderItems,
-          });
+      const completeDemoOrder = async () => {
+        saveConfirmedOrder({
+          orderNumber,
+          deliveryMethod: delivery,
+          deliveryLabel: getDeliveryLabel(delivery),
+          estimatedDelivery: getEstimatedDelivery(delivery),
+          subtotal,
+          shipping,
+          tax,
+          total,
+          items: orderItems,
+        });
 
+        if (!isStaticSite) {
           await appendOrder({
             orderNumber,
             customer: {
@@ -138,9 +135,26 @@ function CheckoutPage() {
             total,
             items: orderItems,
           });
+        }
 
-          clearCart();
-          navigate({ to: "/checkout/success" });
+        clearCart();
+        navigate({ to: "/checkout/success" });
+      };
+
+      if (isStaticSite) {
+        await completeDemoOrder();
+        return;
+      }
+
+      await openRazorpayCheckout({
+        amount: total,
+        receipt: `vk_${Date.now()}`,
+        customer: {
+          name: fullName.trim(),
+          phone: phone.trim(),
+        },
+        onSuccess: async () => {
+          await completeDemoOrder();
         },
       });
     } catch (err) {

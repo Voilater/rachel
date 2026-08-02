@@ -10,7 +10,7 @@ function getConfig() {
     port: Number(process.env.DATABASE_PORT ?? 3306),
     user: process.env.DATABASE_USER ?? "root",
     password: process.env.DATABASE_PASSWORD ?? "",
-    database: process.env.DATABASE_NAME ?? "vkstudio",
+    database: process.env.DATABASE_NAME ?? "vk_studio",
     waitForConnections: true,
     connectionLimit: 10,
   };
@@ -57,7 +57,7 @@ async function ensureSchema() {
 }
 
 async function initializeSchema() {
-  const dbName = process.env.DATABASE_NAME ?? "vkstudio";
+  const dbName = process.env.DATABASE_NAME ?? "vk_studio";
   const bootstrapPool = mysql.createPool({
     ...getConfig(),
     database: undefined,

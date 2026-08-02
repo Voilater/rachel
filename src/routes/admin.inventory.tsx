@@ -112,13 +112,15 @@ function AdminInventoryPage() {
     <div>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-serif text-3xl text-burgundy">Inventory</h1>
-          <p className="mt-2 text-muted-foreground">{products.length} products in catalog</p>
+          <h1 className="font-serif text-2xl text-burgundy md:text-3xl">Inventory</h1>
+          <p className="mt-2 text-sm text-muted-foreground md:text-base">
+            {products.length} products in catalog
+          </p>
         </div>
         <button
           type="button"
           onClick={openCreate}
-          className="flex items-center gap-2 rounded-lg bg-burgundy px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:opacity-90"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-burgundy px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:opacity-90 sm:w-auto"
         >
           <Plus className="size-4" />
           Add Product
@@ -133,8 +135,81 @@ function AdminInventoryPage() {
         className="mt-6 w-full max-w-md rounded-lg border border-border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
       />
 
-      <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-white">
-        <table className="w-full text-left text-sm">
+      <div className="mt-6 space-y-4 md:hidden">
+        {filtered.map((product) => (
+          <article
+            key={product.id}
+            className="rounded-2xl border border-border bg-white p-4 shadow-sm"
+          >
+            <div className="flex gap-3">
+              <img
+                src={product.image}
+                alt=""
+                className="size-16 shrink-0 rounded-xl object-cover"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-foreground">{product.name}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{product.sku}</p>
+                <p className="mt-2 text-sm text-muted-foreground">{product.category}</p>
+                <p className="mt-2 font-semibold text-burgundy">{formatPrice(product.price)}</p>
+              </div>
+            </div>
+
+            <div className="mt-4 flex items-center justify-between gap-3 border-t border-border pt-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Stock
+                </span>
+                <button
+                  type="button"
+                  onClick={() => adjustStock(product.id, -1)}
+                  className="rounded border border-border p-1 hover:bg-blush-section"
+                  aria-label="Decrease stock"
+                >
+                  <Minus className="size-3" />
+                </button>
+                <span
+                  className={
+                    product.stock <= 5 ? "min-w-[2rem] text-center font-semibold text-burgundy" : "min-w-[2rem] text-center font-medium"
+                  }
+                >
+                  {product.stock}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => adjustStock(product.id, 1)}
+                  className="rounded border border-border p-1 hover:bg-blush-section"
+                  aria-label="Increase stock"
+                >
+                  <Plus className="size-3" />
+                </button>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => openEdit(product)}
+                  className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-blush-section hover:text-burgundy"
+                  aria-label="Edit"
+                >
+                  <Pencil className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => deleteProduct(product.id)}
+                  className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-red-50 hover:text-red-600"
+                  aria-label="Delete"
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <div className="mt-6 hidden overflow-x-auto rounded-2xl border border-border bg-white md:block">
+        <table className="min-w-[720px] w-full text-left text-sm">
           <thead className="border-b border-border bg-blush-section/50 text-xs uppercase tracking-wider text-muted-foreground">
             <tr>
               <th className="px-4 py-3">Product</th>
@@ -217,24 +292,24 @@ function AdminInventoryPage() {
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
           <button
             type="button"
             className="absolute inset-0 bg-black/40"
             onClick={() => setShowForm(false)}
             aria-label="Close"
           />
-          <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-            <div className="flex items-center justify-between">
+          <div className="relative flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl sm:rounded-2xl">
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
               <h2 className="font-serif text-xl text-burgundy">
                 {editingId ? "Edit Product" : "Add Product"}
               </h2>
-              <button type="button" onClick={() => setShowForm(false)}>
+              <button type="button" onClick={() => setShowForm(false)} aria-label="Close">
                 <X className="size-5 text-muted-foreground" />
               </button>
             </div>
 
-            <div className="mt-6 space-y-4">
+            <div className="space-y-4 overflow-y-auto px-5 py-5">
               <input
                 placeholder="Product name"
                 value={form.name}
@@ -294,14 +369,16 @@ function AdminInventoryPage() {
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving}
-              className="mt-6 w-full rounded-lg bg-burgundy py-3 text-sm font-bold uppercase tracking-wider text-white hover:opacity-90 disabled:opacity-60"
-            >
-              {saving ? "Saving…" : editingId ? "Save Changes" : "Create Product"}
-            </button>
+            <div className="border-t border-border px-5 py-4">
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                className="w-full rounded-lg bg-burgundy py-3 text-sm font-bold uppercase tracking-wider text-white hover:opacity-90 disabled:opacity-60"
+              >
+                {saving ? "Saving…" : editingId ? "Save Changes" : "Create Product"}
+              </button>
+            </div>
           </div>
         </div>
       )}

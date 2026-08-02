@@ -8,6 +8,8 @@ import {
   type ReactNode,
 } from "react";
 
+import { staticInventoryItems } from "@/lib/static-catalog";
+import { isStaticSite } from "@/lib/static-site";
 import type { ShopCategory, ShopProduct } from "@/lib/site-data";
 import { getShopProduct } from "@/lib/site-data";
 import {
@@ -72,6 +74,14 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
+    if (isStaticSite) {
+      setProducts(staticInventoryItems);
+      setReady(true);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
