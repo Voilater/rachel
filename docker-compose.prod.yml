@@ -1,6 +1,8 @@
 # Production compose — pulls app image from ECR (no local build).
 # Used by scripts/deploy-server.sh
 
+name: vk
+
 services:
   mysql:
     image: mysql:8.4
@@ -19,7 +21,8 @@ services:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-pvk_root"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 12
+      start_period: 20s
 
   app:
     image: ${ECR_IMAGE:?Set ECR_IMAGE or run scripts/deploy-server.sh}
@@ -41,8 +44,7 @@ services:
     env_file:
       - .env
     depends_on:
-      mysql:
-        condition: service_healthy
+      - mysql
 
 volumes:
   vk_mysql_data:
