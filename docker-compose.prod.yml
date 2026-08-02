@@ -1,0 +1,48 @@
+# Production compose — pulls app image from ECR (no local build).
+# Used by scripts/deploy-server.sh
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: vk-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: vk_root
+      MYSQL_DATABASE: vk_studio
+      MYSQL_USER: vk_app
+      MYSQL_PASSWORD: vk_app_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - vk_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-pvk_root"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    image: ${ECR_IMAGE:?Set ECR_IMAGE or run scripts/deploy-server.sh}
+    container_name: vk-app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOST: 0.0.0.0
+      DATABASE_HOST: mysql
+      DATABASE_PORT: 3306
+      DATABASE_USER: vk_app
+      DATABASE_PASSWORD: vk_app_pass
+      DATABASE_NAME: vk_studio
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
+      AUTH_TRUST_HOST: "true"
+    env_file:
+      - .env
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+volumes:
+  vk_mysql_data:
