@@ -1,17 +1,19 @@
-FROM node:22-alpine AS build
+# Build on the host CPU (fast on Mac). Output is JS and runs on amd64.
+FROM --platform=$BUILDPLATFORM node:22-alpine AS build
 
 WORKDIR /app
 
-# package-lock.json is generated with npm 11; node:22-alpine ships npm 10.
 RUN npm install -g npm@11
 
 COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
+ENV NODE_OPTIONS=--max-old-space-size=4096
 RUN npm run build
 
-FROM node:22-alpine AS run
+# Runtime image for EC2 (linux/amd64).
+FROM --platform=linux/amd64 node:22-alpine AS run
 
 WORKDIR /app
 

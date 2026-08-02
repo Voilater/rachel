@@ -18,6 +18,7 @@ AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-313448432124}"
 ECR_REPOSITORY="${ECR_REPOSITORY:-rachel}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 PLATFORM="${PLATFORM:-linux/amd64}"
+NO_CACHE=0
 GIT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 
 while [[ $# -gt 0 ]]; do
@@ -25,6 +26,7 @@ while [[ $# -gt 0 ]]; do
     --tag) IMAGE_TAG="$2"; shift 2 ;;
     --profile) AWS_PROFILE="$2"; shift 2 ;;
     --region) AWS_REGION="$2"; shift 2 ;;
+    --no-cache) NO_CACHE=1; shift ;;
     *) echo "Unknown option: $1" >&2; exit 1 ;;
   esac
 done
@@ -74,12 +76,13 @@ echo "==> Building and pushing ${PLATFORM} image..."
 echo "    ${ECR_IMAGE}"
 echo "    ${ECR_IMAGE_SHA}"
 
-docker buildx build \
-  --platform "$PLATFORM" \
-  --tag "$ECR_IMAGE" \
-  --tag "$ECR_IMAGE_SHA" \
-  --push \
-  .
+BUILD_ARGS=(--platform "$PLATFORM" --tag "$ECR_IMAGE" --tag "$ECR_IMAGE_SHA" --push)
+if [[ "$NO_CACHE" -eq 1 ]]; then
+  BUILD_ARGS+=(--no-cache)
+  echo "==> Building with --no-cache"
+fi
+
+docker buildx build "${BUILD_ARGS[@]}" .
 
 echo ""
 echo "Pushed:"
