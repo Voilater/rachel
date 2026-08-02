@@ -19,7 +19,6 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-AWS_PROFILE="${AWS_PROFILE:-manu}"
 AWS_REGION="${AWS_REGION:-ap-south-1}"
 AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-313448432124}"
 ECR_REPOSITORY="${ECR_REPOSITORY:-rachel}"
@@ -36,7 +35,6 @@ Deploy the app + MySQL on this server.
 Options:
   --build             Build the Docker image on this server (recommended on EC2)
   --tag TAG           Image tag (default: latest)
-  --profile PROFILE   AWS CLI profile for ECR pull (default: manu)
   --region REGION     AWS region (default: ap-south-1)
   --port PORT         Host port (default: 3000)
   --base-url URL      APP_BASE_URL (default: http://localhost:PORT)
@@ -56,7 +54,6 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --build) BUILD_ON_SERVER=1; shift ;;
     --tag) IMAGE_TAG="$2"; shift 2 ;;
-    --profile) AWS_PROFILE="$2"; shift 2 ;;
     --region) AWS_REGION="$2"; shift 2 ;;
     --port) APP_PORT="$2"; shift 2 ;;
     --base-url) APP_BASE_URL="$2"; shift 2 ;;
@@ -106,7 +103,6 @@ else
   echo "==> Logging in to ECR..."
   aws ecr get-login-password \
     --region "$AWS_REGION" \
-    --profile "$AWS_PROFILE" \
     | docker login --username AWS --password-stdin "$ECR_REGISTRY"
 
   echo "==> Pulling image from ECR..."
