@@ -69,6 +69,10 @@ require_cmd() {
   command -v "$1" >/dev/null 2>&1 || { echo "Error: '$1' is required." >&2; exit 1; }
 }
 
+has_compose() {
+  docker compose version >/dev/null 2>&1 || command -v docker-compose >/dev/null 2>&1
+}
+
 compose() {
   if docker compose version >/dev/null 2>&1; then
     docker compose -f "$COMPOSE_FILE" "$@"
@@ -80,9 +84,7 @@ compose() {
     return
   fi
 
-  echo "Error: Docker Compose is not installed." >&2
-  echo "Run: sudo apt install -y docker-compose-plugin" >&2
-  exit 1
+  return 1
 }
 
 wait_for_mysql() {
@@ -99,9 +101,10 @@ wait_for_mysql() {
 }
 
 start_with_plain_docker() {
-  echo "==> Starting with plain docker (compose fallback)..."
+  echo "==> Starting app + MySQL (plain docker)..."
 
   docker network create "$NETWORK_NAME" 2>/dev/null || true
+  docker volume create vk_mysql_data 2>/dev/null || true
   docker rm -f vk-app vk-mysql 2>/dev/null || true
 
   docker run -d \
@@ -139,9 +142,15 @@ start_with_plain_docker() {
 
 start_stack() {
   export ECR_IMAGE APP_PORT APP_BASE_URL
+  docker rm -f vk-app vk-mysql 2>/dev/null || true
+
+  if ! has_compose; then
+    echo "==> Docker Compose not installed — using plain docker"
+    start_with_plain_docker
+    return
+  fi
 
   echo "==> Starting app + MySQL (compose)..."
-  docker rm -f vk-app vk-mysql 2>/dev/null || true
   compose down --remove-orphans 2>/dev/null || true
 
   if ! compose up -d --no-build --pull missing; then
@@ -187,7 +196,7 @@ if docker compose version >/dev/null 2>&1; then
 elif command -v docker-compose >/dev/null 2>&1; then
   echo "    Compose:   $(docker-compose --version)"
 else
-  echo "    Compose:   NOT INSTALLED"
+  echo "    Compose:   not installed (will use plain docker)"
 fi
 echo ""
 
