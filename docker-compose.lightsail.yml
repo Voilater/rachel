@@ -1,0 +1,61 @@
+# Low-memory production stack for Lightsail ~1–2 GB.
+# App image is loaded/built separately; set ECR_IMAGE.
+
+name: vk
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: vk-mysql
+    restart: unless-stopped
+    mem_limit: 512m
+    environment:
+      MYSQL_ROOT_PASSWORD: vk_root
+      MYSQL_DATABASE: vk_studio
+      MYSQL_USER: vk_app
+      MYSQL_PASSWORD: vk_app_pass
+    command:
+      - --innodb-buffer-pool-size=128M
+      - --performance-schema=OFF
+      - --table-open-cache=64
+      - --max-connections=50
+    # MySQL stays on the Docker network only (not public).
+    expose:
+      - "3306"
+    volumes:
+      - vk_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-pvk_root"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  app:
+    image: ${ECR_IMAGE:?Set ECR_IMAGE}
+    container_name: vk-app
+    restart: unless-stopped
+    mem_limit: 256m
+    ports:
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOST: 0.0.0.0
+      NODE_OPTIONS: --max-old-space-size=192
+      DATABASE_HOST: mysql
+      DATABASE_PORT: 3306
+      DATABASE_USER: vk_app
+      DATABASE_PASSWORD: vk_app_pass
+      DATABASE_NAME: vk_studio
+      APP_BASE_URL: https://rachelparadise.in
+      AUTH_URL: https://rachelparadise.in/api/auth
+      AUTH_TRUST_HOST: "true"
+    env_file:
+      - .env
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+volumes:
+  vk_mysql_data:

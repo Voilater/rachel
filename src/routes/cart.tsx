@@ -4,24 +4,35 @@ import { useState } from "react";
 
 import { PageLayout } from "@/components/layout/PageLayout";
 import { Price } from "@/components/Price";
+import { useAuth } from "@/lib/auth";
 import { getCartItemKey, useCart } from "@/lib/cart";
 import { computeOrderTotals } from "@/lib/order-totals";
+import { buildPageHead } from "@/lib/seo";
 import { siteConfig } from "@/lib/site-data";
 
 export const Route = createFileRoute("/cart")({
-  head: () => ({
-    meta: [{ title: `Your Shopping Bag — ${siteConfig.name}` }],
-  }),
+  head: () =>
+    buildPageHead({
+      title: `Your Shopping Bag`,
+      description: `Review items in your ${siteConfig.brandName} shopping bag.`,
+      path: "/cart",
+      noIndex: true,
+    }),
   component: CartPage,
 });
 
 function CartPage() {
   const { items, removeItem, updateQuantity } = useCart();
+  const { clientUser } = useAuth();
   const [promoCode, setPromoCode] = useState("");
 
   const subtotal = items.reduce((sum, i) => sum + i.linePrice * i.quantity, 0);
   const { shipping, tax, total } = computeOrderTotals(items, "standard");
   const hasFreeShipping = items.length > 0;
+  const checkoutTo = clientUser ? "/checkout" : "/login";
+  const checkoutSearch = clientUser
+    ? undefined
+    : { registered: false, email: "", error: "", redirect: "/checkout" };
 
   return (
     <PageLayout>
@@ -147,10 +158,11 @@ function CartPage() {
               </div>
 
               <Link
-                to="/checkout"
+                to={checkoutTo}
+                search={checkoutSearch}
                 className="mt-6 flex w-full items-center justify-center bg-burgundy py-4 text-xs font-bold uppercase tracking-[0.15em] text-white transition-opacity hover:opacity-90"
               >
-                Proceed to Checkout
+                {clientUser ? "Proceed to Checkout" : "Sign in to Checkout"}
               </Link>
 
               <Link

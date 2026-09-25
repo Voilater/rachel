@@ -101,7 +101,9 @@ export function computeCustomizeTotalForProduct(
 
 export function inferProductTypeFromCategory(category: string): ProductType {
   const normalized = category.toLowerCase();
-  if (normalized.includes("necklace")) return "necklace";
+  if (normalized.includes("chain") || normalized.includes("necklace")) {
+    return "necklace";
+  }
   if (normalized.includes("anklet")) return "anklet";
   return "bracelet";
 }

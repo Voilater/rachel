@@ -1,22 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { StartAuthJS } from "start-authjs";
 
-import { authConfig } from "@/lib/auth0-config";
-import { GOOGLE_OAUTH_CONNECTION } from "@/lib/google-oauth";
+import { serverRedirect } from "@/lib/server-redirect";
 import { clearCredentialCookie } from "@/server/credential-session";
-
-const authHandlers = StartAuthJS(authConfig);
-
-function forwardSetCookies(from: Response, to: Headers) {
-  if (typeof from.headers.getSetCookie === "function") {
-    for (const cookie of from.headers.getSetCookie()) {
-      to.append("Set-Cookie", cookie);
-    }
-    return;
-  }
-  const raw = from.headers.get("set-cookie");
-  if (raw) to.append("Set-Cookie", raw);
-}
 
 function escapeHtmlAttr(value: string) {
   return value
@@ -30,31 +15,36 @@ export const Route = createFileRoute("/auth/google")({
   server: {
     handlers: {
       GET: async ({ request }) => {
+        const { isGoogleOAuthConfigured } = await import("@/lib/auth0-config");
+        if (!isGoogleOAuthConfigured()) {
+          return redirectMissingGoogle(request);
+        }
+
         clearCredentialCookie();
 
         const url = new URL(request.url);
         const callbackUrl = url.searchParams.get("callbackUrl") ?? "/account";
-        const screenHint = url.searchParams.get("screen_hint");
 
-        const csrfUrl = new URL("/api/auth/csrf", url.origin);
-        const csrfRes = await authHandlers.GET({
-          request: new Request(csrfUrl.toString(), {
-            method: "GET",
-            headers: request.headers,
-          }),
-          response: new Response(),
-        });
-
-        let csrfToken = "";
         try {
-          const data = (await csrfRes.json()) as { csrfToken?: string };
-          csrfToken = data.csrfToken ?? "";
-        } catch {
-          return new Response("Could not start Google sign-in. Please try again.", {
-            status: 500,
+          const { writeAuditLog } = await import("@/server/audit-log.server");
+          await writeAuditLog({
+            action: "auth.oauth.start",
+            status: "info",
+            request,
+            message: "Google OAuth redirect started",
+            metadata: {
+              provider: "google",
+              callbackUrl,
+            },
           });
+        } catch {
+          // ignore
         }
 
+        const { fetchAuthCsrfToken, forwardSetCookies } = await import(
+          "@/server/auth-csrf"
+        );
+        const { base, csrfToken, csrfResponse } = await fetchAuthCsrfToken(request);
         if (!csrfToken) {
           return new Response("Could not start Google sign-in. Please try again.", {
             status: 500,
@@ -62,10 +52,7 @@ export const Route = createFileRoute("/auth/google")({
         }
 
         const safeCallback = escapeHtmlAttr(callbackUrl);
-        const screenHintInput =
-          screenHint === "signup"
-            ? `<input type="hidden" name="screen_hint" value="signup" />`
-            : "";
+        const action = escapeHtmlAttr(`${base}/api/auth/signin/google`);
 
         const html = `<!DOCTYPE html>
 <html lang="en">
@@ -78,18 +65,16 @@ export const Route = createFileRoute("/auth/google")({
   <p style="font-family: system-ui, sans-serif; text-align: center; margin-top: 40vh; color: #666;">
     Redirecting to Google…
   </p>
-  <form id="oauth" method="POST" action="/api/auth/signin/auth0">
+  <form id="oauth" method="POST" action="${action}">
     <input type="hidden" name="csrfToken" value="${escapeHtmlAttr(csrfToken)}" />
     <input type="hidden" name="callbackUrl" value="${safeCallback}" />
-    <input type="hidden" name="connection" value="${GOOGLE_OAUTH_CONNECTION}" />
-    ${screenHintInput}
   </form>
   <script>document.getElementById("oauth").submit();</script>
 </body>
 </html>`;
 
         const headers = new Headers({ "Content-Type": "text/html; charset=utf-8" });
-        forwardSetCookies(csrfRes, headers);
+        forwardSetCookies(csrfResponse, headers);
 
         return new Response(html, { status: 200, headers });
       },
@@ -97,6 +82,15 @@ export const Route = createFileRoute("/auth/google")({
   },
   component: GoogleOAuthFallback,
 });
+
+function redirectMissingGoogle(request: Request) {
+  const url = new URL(request.url);
+  const params = new URLSearchParams({
+    error:
+      "Google sign-in is not configured. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env.",
+  });
+  return serverRedirect(`${url.origin}/login?${params.toString()}`);
+}
 
 function GoogleOAuthFallback() {
   return (

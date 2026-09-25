@@ -5,8 +5,10 @@ import {
   LogOut,
   Menu,
   Package,
+  ScrollText,
   ShoppingBag,
   Store,
+  Instagram,
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -15,6 +17,7 @@ import { useAuth } from "@/lib/auth";
 import { useOrders } from "@/lib/orders-store";
 import { siteConfig } from "@/lib/site-data";
 import { cn } from "@/lib/utils";
+import { BrandLogo } from "@/components/BrandLogo";
 
 export const Route = createFileRoute("/admin")({
   component: AdminLayout,
@@ -24,6 +27,8 @@ const navItems = [
   { to: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
   { to: "/admin/orders", label: "Orders", icon: ShoppingBag, exact: false },
   { to: "/admin/inventory", label: "Inventory", icon: Package, exact: false },
+  { to: "/admin/instagram", label: "Instagram", icon: Instagram, exact: false },
+  { to: "/admin/audit", label: "Audit Logs", icon: ScrollText, exact: false },
 ] as const;
 
 function AdminNavLink({
@@ -111,6 +116,7 @@ function AdminLayout() {
             >
               <Menu className="size-5" />
             </button>
+            <BrandLogo to="/admin" imgClassName="h-9 w-9 md:h-10 md:w-10" />
             <div className="min-w-0">
               <p className="truncate font-serif text-base text-burgundy sm:text-lg">
                 {siteConfig.name} Admin

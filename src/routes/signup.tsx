@@ -4,12 +4,17 @@ import { AuthSplitLayout, signupHeroImage } from "@/components/auth/AuthSplitLay
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { serverRedirect } from "@/lib/server-redirect";
 import { siteConfig } from "@/lib/site-data";
+import { buildPageHead } from "@/lib/seo";
 import { registerUser } from "@/server/users-auth.server";
 
 export const Route = createFileRoute("/signup")({
-  head: () => ({
-    meta: [{ title: `Sign Up — ${siteConfig.name}` }],
-  }),
+  head: () =>
+    buildPageHead({
+      title: `Sign Up`,
+      description: `Create your ${siteConfig.brandName} account.`,
+      path: "/signup",
+      noIndex: true,
+    }),
   validateSearch: (search: Record<string, unknown>) => ({
     error: typeof search.error === "string" ? search.error : "",
     name: typeof search.name === "string" ? search.name : "",
@@ -35,12 +40,31 @@ export const Route = createFileRoute("/signup")({
         }
 
         try {
-          await registerUser({ name, email, password });
+          const user = await registerUser({ name, email, password });
+          const { writeAuditLog } = await import("@/server/audit-log.server");
+          await writeAuditLog({
+            action: "auth.signup.success",
+            status: "success",
+            userId: user.id,
+            email,
+            request,
+            message: "Account created",
+            metadata: { name },
+          });
           const loginParams = new URLSearchParams({ registered: "1", email });
           return serverRedirect(`${url.origin}/login?${loginParams.toString()}`);
         } catch (err) {
           const message =
             err instanceof Error ? err.message : "Could not create account.";
+          const { writeAuditLog } = await import("@/server/audit-log.server");
+          await writeAuditLog({
+            action: "auth.signup.failure",
+            status: "failure",
+            email,
+            request,
+            message,
+            metadata: { name },
+          });
           const params = new URLSearchParams({ error: message, name, email });
           return serverRedirect(`${url.origin}/signup?${params.toString()}`);
         }
@@ -56,7 +80,9 @@ function SignupPage() {
   return (
     <AuthSplitLayout imagePosition="right" imageSrc={signupHeroImage}>
       <h1 className="font-serif text-3xl text-burgundy md:text-4xl">Create Your Account</h1>
-      <p className="mt-2 text-sm text-muted-foreground">Join our community of intention</p>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Your account is stored securely in Amazon Cognito
+      </p>
 
       <form method="post" action="/signup" className="mt-8 space-y-5">
         <label className="block">

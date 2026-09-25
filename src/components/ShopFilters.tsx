@@ -2,7 +2,9 @@ import { ChevronDown } from "lucide-react";
 
 import {
   emptyShopFilters,
+  getShopFilterGroups,
   shopFilterGroups,
+  type ShopFilterGroup,
   type ShopFilterGroupId,
   type ShopFilterState,
 } from "@/lib/shop-filters";
@@ -12,6 +14,9 @@ import { cn } from "@/lib/utils";
 interface ShopFiltersProps {
   filters: ShopFilterState;
   onChange: (filters: ShopFilterState) => void;
+  /** Extra categories from live inventory (admin-added + product categories). */
+  categories?: string[];
+  groups?: ShopFilterGroup[];
 }
 
 function setCategoryValue(
@@ -32,7 +37,9 @@ function setStringFilter<T extends string>(values: T[], value: T, checked: boole
   return values.filter((v) => v !== value);
 }
 
-export function ShopFilters({ filters, onChange }: ShopFiltersProps) {
+export function ShopFilters({ filters, onChange, categories, groups }: ShopFiltersProps) {
+  const filterGroups =
+    groups ?? (categories ? getShopFilterGroups(categories) : shopFilterGroups);
   const updateGroup = (groupId: ShopFilterGroupId, value: string, checked: boolean) => {
     switch (groupId) {
       case "category":
@@ -130,7 +137,7 @@ export function ShopFilters({ filters, onChange }: ShopFiltersProps) {
         </div>
 
         <div className="mt-6 space-y-1">
-          {shopFilterGroups.map((group) => (
+          {filterGroups.map((group) => (
             <details
               key={group.id}
               className="group border-b border-border pb-3 last:border-b-0"

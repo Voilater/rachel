@@ -2,10 +2,16 @@ import { Link } from "@tanstack/react-router";
 import { X } from "lucide-react";
 
 import { Price } from "@/components/Price";
+import { useAuth } from "@/lib/auth";
 import { getCartItemKey, useCart } from "@/lib/cart";
 
 export function CartDrawer() {
   const { items, isOpen, closeCart, count } = useCart();
+  const { clientUser } = useAuth();
+  const checkoutTo = clientUser ? "/checkout" : "/login";
+  const checkoutSearch = clientUser
+    ? undefined
+    : { registered: false, email: "", error: "", redirect: "/checkout" };
 
   if (!isOpen) return null;
 
@@ -82,11 +88,12 @@ export function CartDrawer() {
               View Bag
             </Link>
             <Link
-              to="/checkout"
+              to={checkoutTo}
+              search={checkoutSearch}
               onClick={closeCart}
               className="mt-3 flex w-full items-center justify-center bg-burgundy py-3.5 text-xs font-bold uppercase tracking-[0.15em] text-white hover:opacity-90"
             >
-              Checkout
+              {clientUser ? "Checkout" : "Sign in to Checkout"}
             </Link>
           </div>
         )}

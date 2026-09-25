@@ -13,8 +13,18 @@ export interface RazorpayCheckoutInput {
     phone: string;
     email?: string;
   };
-  onSuccess?: () => void | Promise<void>;
+  onSuccess?: (payment: {
+    orderId: string;
+    paymentId: string;
+  }) => void | Promise<void>;
 }
+
+type CreatedOrder = {
+  orderId: string;
+  amount: number;
+  currency: string;
+  keyId?: string;
+};
 
 export async function openRazorpayCheckout(input: RazorpayCheckoutInput) {
   const loaded = await loadRazorpayCheckout();
@@ -22,15 +32,40 @@ export async function openRazorpayCheckout(input: RazorpayCheckoutInput) {
     throw new Error("Could not load Razorpay checkout. Please try again.");
   }
 
-  const order = await createRazorpayOrder({
-    data: { amount: input.amount, receipt: input.receipt },
-  });
+  let order: CreatedOrder;
+  try {
+    order = (await createRazorpayOrder({
+      data: { amount: input.amount, receipt: input.receipt },
+    })) as CreatedOrder;
+  } catch (error) {
+    throw error instanceof Error
+      ? error
+      : new Error("Could not create Razorpay order.");
+  }
+
+  if (!order?.orderId || !order.amount) {
+    throw new Error(
+      "Payment order was not created. Restart the app so Razorpay env keys load.",
+    );
+  }
+
+  const publicKey = (
+    order.keyId?.trim() ||
+    import.meta.env.VITE_RAZORPAY_KEY_ID?.trim() ||
+    ""
+  ).trim();
+
+  if (!publicKey) {
+    throw new Error(
+      "Razorpay key is missing. Set VITE_RAZORPAY_KEY_ID in .env and restart.",
+    );
+  }
 
   return new Promise<void>((resolve, reject) => {
     const razorpay = new window.Razorpay({
-      key: order.keyId,
+      key: publicKey,
       amount: order.amount,
-      currency: order.currency,
+      currency: order.currency || "INR",
       name: siteConfig.name,
       description: `${siteConfig.brandName} order`,
       order_id: order.orderId,
@@ -45,6 +80,14 @@ export async function openRazorpayCheckout(input: RazorpayCheckoutInput) {
       },
       handler: async (response) => {
         try {
+          if (
+            !response.razorpay_order_id ||
+            !response.razorpay_payment_id ||
+            !response.razorpay_signature
+          ) {
+            throw new Error("Payment response was incomplete.");
+          }
+
           await verifyRazorpayPayment({
             data: {
               orderId: response.razorpay_order_id,
@@ -52,10 +95,17 @@ export async function openRazorpayCheckout(input: RazorpayCheckoutInput) {
               signature: response.razorpay_signature,
             },
           });
-          await input.onSuccess?.();
+          await input.onSuccess?.({
+            orderId: response.razorpay_order_id,
+            paymentId: response.razorpay_payment_id,
+          });
           resolve();
         } catch (error) {
-          reject(error instanceof Error ? error : new Error("Payment verification failed."));
+          reject(
+            error instanceof Error
+              ? error
+              : new Error("Payment verification failed."),
+          );
         }
       },
     });

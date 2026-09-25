@@ -1,29 +1,51 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ChevronDown, Clock, Mail, MessageCircle, Plus } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { PageLayout } from "@/components/layout/PageLayout";
 import {
   contactFaqs,
   contactGallery,
   contactSubjects,
+  pickContactGallery,
   siteConfig,
 } from "@/lib/site-data";
+import { buildPageHead, faqJsonLd } from "@/lib/seo";
+import { JsonLd } from "@/components/JsonLd";
 
-const JOURNAL_IMAGE =
-  "https://images.unsplash.com/photo-1615485500834-bc10199bc4c5?w=1600&h=700&fit=crop";
+const JOURNAL_IMAGE = "/images/hero-feature-1.png";
 
 export const Route = createFileRoute("/contact")({
-  head: () => ({ meta: [{ title: `Contact Us — ${siteConfig.name}` }] }),
+  head: () =>
+    buildPageHead({
+      title: `Contact Us`,
+      description:
+        "Contact Rachel Paradise for custom jewelry orders, shipping questions, private appointments, and studio support.",
+      path: "/contact",
+      keywords: ["contact Rachel Paradise", "custom jewelry inquiry", "jewelry studio contact"],
+    }),
   component: ContactPage,
 });
 
 function ContactPage() {
   const [openFaq, setOpenFaq] = useState<string>(contactFaqs[0].id);
   const [subject, setSubject] = useState<string>(contactSubjects[0]);
+  const [gallery, setGallery] = useState(() => [...contactGallery]);
+
+  useEffect(() => {
+    setGallery(pickContactGallery(4));
+  }, []);
 
   return (
     <PageLayout>
+      <JsonLd
+        data={faqJsonLd(
+          contactFaqs.map((faq) => ({
+            question: faq.question,
+            answer: faq.answer,
+          })),
+        )}
+      />
       {/* Hero */}
       <section className="bg-blush-section px-4 py-14 md:py-20">
         <div className="mx-auto max-w-3xl text-center">
@@ -189,7 +211,7 @@ function ContactPage() {
           A curated exploration of artisanal light and ethereal textures.
         </p>
         <div className="mt-10 grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-5">
-          {contactGallery.map((item) => (
+          {gallery.map((item) => (
             <div key={item.id} className="overflow-hidden rounded-2xl bg-blush-section">
               <img
                 src={item.image}

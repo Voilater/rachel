@@ -42,7 +42,10 @@ export async function queryOne<T = mysql.RowDataPacket>(
 
 export async function execute(sql: string, params?: unknown[]) {
   await ensureSchema();
-  const [result] = await getPool().execute(sql, params);
+  const [result] = await getPool().execute(
+    sql,
+    params as (string | number | boolean | Date | null | Buffer)[] | undefined,
+  );
   return result;
 }
 
@@ -156,16 +159,62 @@ async function initializeSchema() {
     )
   `);
 
-  const [countRows] = await db.query<mysql.RowDataPacket[]>(
-    "SELECT COUNT(*) AS count FROM products",
-  );
-  const count = Number(countRows[0]?.count ?? 0);
-  if (count === 0) {
-    await seedProducts(db);
-  }
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      action VARCHAR(128) NOT NULL,
+      status ENUM('success', 'failure', 'info') NOT NULL DEFAULT 'info',
+      user_id VARCHAR(64) NULL,
+      email VARCHAR(255) NULL,
+      ip_address VARCHAR(64) NULL,
+      user_agent VARCHAR(1024) NULL,
+      path VARCHAR(512) NULL,
+      method VARCHAR(16) NULL,
+      message VARCHAR(512) NULL,
+      request_headers JSON NULL,
+      browser_meta JSON NULL,
+      metadata JSON NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_audit_created (created_at),
+      INDEX idx_audit_action (action),
+      INDEX idx_audit_email (email),
+      INDEX idx_audit_ip (ip_address)
+    )
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS site_settings (
+      setting_key VARCHAR(64) PRIMARY KEY,
+      value_json JSON NOT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+
+  await migrateLegacyCategories(db);
+  await ensureOrderPaymentColumns(db);
 
   schemaReady = true;
-  void syncMissingCatalogProducts(db);
+}
+
+async function ensureOrderPaymentColumns(db: mysql.Pool) {
+  const columns = [
+    "razorpay_order_id VARCHAR(64) NULL",
+    "razorpay_payment_id VARCHAR(64) NULL",
+  ];
+  for (const column of columns) {
+    try {
+      await db.query(`ALTER TABLE orders ADD COLUMN ${column}`);
+    } catch {
+      // already exists
+    }
+  }
+  try {
+    await db.query(
+      "CREATE INDEX idx_orders_customer_email ON orders (customer_email)",
+    );
+  } catch {
+    // already exists
+  }
 }
 
 async function ensureUserProfileColumns(db: mysql.Pool) {
@@ -185,67 +234,9 @@ async function ensureUserProfileColumns(db: mysql.Pool) {
   }
 }
 
-async function insertCatalogProduct(
-  db: mysql.Pool,
-  product: import("@/lib/site-data").ShopProduct,
-  index: number,
-) {
-  const stock = product.stock ?? 12 + (index % 8);
-  const sku = product.sku ?? `VK-${String(index + 1).padStart(4, "0")}`;
-  const extra = {
-    images: product.images,
-    longDescription: product.longDescription,
-    reviewCount: product.reviewCount,
-    sizes: product.sizes,
-    colors: product.colors,
-  };
-
-  await db.execute(
-    `INSERT INTO products (
-      id, name, sku, category, price, stock, description, image, rating,
-      badge, featured, cart_price, cart_subtitle, extra_json
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      product.id,
-      product.name,
-      sku,
-      product.category,
-      product.price,
-      stock,
-      product.description,
-      product.image,
-      product.rating,
-      product.badge ?? null,
-      product.featured ?? false,
-      product.cartPrice ?? null,
-      product.cartSubtitle ?? null,
-      JSON.stringify(extra),
-    ],
-  );
-}
-
-async function importCatalog() {
-  const { allCatalogProducts } = await import("@/lib/site-data");
-  return allCatalogProducts;
-}
-
-async function seedProducts(db: mysql.Pool) {
-  const catalog = await importCatalog();
-
-  for (const [index, product] of catalog.entries()) {
-    await insertCatalogProduct(db, product, index);
-  }
-}
-
-async function syncMissingCatalogProducts(db: mysql.Pool) {
-  const catalog = await importCatalog();
-
-  for (const [index, product] of catalog.entries()) {
-    const [rows] = await db.query<mysql.RowDataPacket[]>(
-      "SELECT id FROM products WHERE id = ?",
-      [product.id],
-    );
-    if (rows.length > 0) continue;
-    await insertCatalogProduct(db, product, index);
+async function migrateLegacyCategories(db: mysql.Pool) {
+  const { LEGACY_CATEGORY_MAP } = await import("@/lib/site-data");
+  for (const [from, to] of Object.entries(LEGACY_CATEGORY_MAP)) {
+    await db.execute("UPDATE products SET category = ? WHERE category = ?", [to, from]);
   }
 }

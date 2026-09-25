@@ -11,7 +11,7 @@ import {
 import { formatPrice, siteConfig } from "@/lib/site-data";
 
 const JOURNAL_IMAGE =
-  "https://images.unsplash.com/photo-1615485500834-bc10199bc4c5?w=1600&h=700&fit=crop";
+  "/images/name-bracelet.png";
 
 function TwitterIcon({ className }: { className?: string }) {
   return (

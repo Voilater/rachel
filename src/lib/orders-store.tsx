@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useRouterState } from "@tanstack/react-router";
 
 import type { ConfirmedOrderItem } from "@/lib/order-confirmation";
 import type { DeliveryMethod } from "@/lib/order-totals";
@@ -30,6 +31,10 @@ interface OrdersContextValue {
   appendOrder: (
     order: Omit<StoredOrder, "id" | "createdAt" | "status"> & {
       items: Array<ConfirmedOrderItem & { productId?: string }>;
+      payment?: {
+        razorpayOrderId?: string;
+        razorpayPaymentId?: string;
+      };
     },
   ) => Promise<StoredOrder>;
   updateOrderStatus: (id: string, status: OrderStatus) => Promise<void>;
@@ -41,6 +46,7 @@ interface OrdersContextValue {
 const OrdersContext = createContext<OrdersContextValue | null>(null);
 
 export function OrdersProvider({ children }: { children: ReactNode }) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [orders, setOrders] = useState<StoredOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,14 +64,21 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Storefront skips this — loading every order on Home/Shop made the site crawl.
+  // Re-fetch when entering admin so new DB rows show after a soft navigate.
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    if (!pathname.startsWith("/admin")) return;
+    void refresh();
+  }, [pathname, refresh]);
 
   const appendOrder = useCallback(
     async (
       order: Omit<StoredOrder, "id" | "createdAt" | "status"> & {
         items: Array<ConfirmedOrderItem & { productId?: string }>;
+        payment?: {
+          razorpayOrderId?: string;
+          razorpayPaymentId?: string;
+        };
       },
     ) => {
       const stored = await createOrder({
@@ -81,6 +94,7 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
           tax: order.tax,
           total: order.total,
           items: order.items,
+          payment: order.payment,
         },
       });
       setOrders((prev) => [stored, ...prev.filter((o) => o.id !== stored.id)]);

@@ -92,8 +92,8 @@ export function CustomizeForm({ product }: { product?: InventoryItem }) {
           price: total,
           rating: 4.5,
           description: subtitle,
-          image: "/images/hero.jpg",
-          category: "Bracelets",
+          image: "/images/name-bracelet.png",
+          category: "Custom",
         },
         {
           size: selectedSize.value,

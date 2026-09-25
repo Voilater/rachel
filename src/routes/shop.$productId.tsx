@@ -4,32 +4,82 @@ import { useEffect, useState } from "react";
 
 import { RecommendationCard } from "@/components/RecommendationCard";
 import { TestimonialCard } from "@/components/TestimonialCard";
+import { JsonLd } from "@/components/JsonLd";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { useCart } from "@/lib/cart";
-import { useInventory } from "@/lib/inventory-store";
+import { toInventoryItem, useInventory } from "@/lib/inventory-store";
 import {
-  formatPrice,
-  siteConfig,
-  testimonials,
-  trendingProducts,
-} from "@/lib/site-data";
+  breadcrumbJsonLd,
+  buildPageHead,
+  productJsonLd,
+} from "@/lib/seo";
+import { formatPrice, siteConfig, testimonials, type Product } from "@/lib/site-data";
 import { cn } from "@/lib/utils";
+import { getProductById } from "@/server/products";
+import { isStaticSite } from "@/lib/static-site";
+import { staticInventoryItems } from "@/lib/static-catalog";
 
 const JOURNAL_IMAGE =
-  "https://images.unsplash.com/photo-1615485500834-bc10199bc4c5?w=1600&h=700&fit=crop";
+  "/images/name-bracelet.png";
 
 export const Route = createFileRoute("/shop/$productId")({
-  head: ({ params }) => ({
-    meta: [{ title: `Product — ${siteConfig.name}` }],
-  }),
+  loader: async ({ params }) => {
+    if (isStaticSite) {
+      const product = staticInventoryItems.find((p) => p.id === params.productId) ?? null;
+      return { product };
+    }
+    try {
+      const row = await getProductById({ data: { id: params.productId } });
+      return { product: row ? toInventoryItem(row) : null };
+    } catch {
+      return { product: null };
+    }
+  },
+  head: ({ loaderData, params }) => {
+    const product = loaderData?.product;
+    if (!product) {
+      return buildPageHead({
+        title: `Product`,
+        description: `Shop handcrafted jewelry from ${siteConfig.brandName}.`,
+        path: `/shop/${params.productId}`,
+      });
+    }
+    return buildPageHead({
+      title: product.name,
+      description: product.description.slice(0, 160),
+      path: `/shop/${product.id}`,
+      image: product.image,
+      type: "product",
+      keywords: [
+        product.name,
+        product.category,
+        "Rachel Paradise",
+        "handcrafted jewelry",
+        "buy online",
+      ],
+    });
+  },
   component: ProductDetailPage,
 });
 
 function ProductDetailPage() {
   const { productId } = Route.useParams();
+  const loaderData = Route.useLoaderData();
   const { addItem } = useCart();
-  const { getProduct, ready, loading, error } = useInventory();
-  const product = getProduct(productId);
+  const { getProduct, products, ready, loading, error } = useInventory();
+  const product = getProduct(productId) ?? loaderData.product ?? undefined;
+  const related: Product[] = products
+    .filter((p) => p.id !== productId)
+    .slice(0, 4)
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      price: p.price,
+      description: p.description,
+      image: p.image,
+      featured: p.featured,
+      limitedEdition: p.badge?.toLowerCase().includes("limited") ?? false,
+    }));
   const [activeImage, setActiveImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState("default");
   const [selectedSize, setSelectedSize] = useState("Medium (7.0\")");
@@ -42,7 +92,7 @@ function ProductDetailPage() {
     setActiveImage(0);
   }, [product]);
 
-  const waitingForProduct = (loading || !ready) && !product;
+  const waitingForProduct = (loading || !ready) && !product && !loaderData.product;
 
   if (waitingForProduct) {
     return (
@@ -54,7 +104,7 @@ function ProductDetailPage() {
     );
   }
 
-  if (error) {
+  if (error && !product) {
     return (
       <PageLayout>
         <div className="mx-auto max-w-7xl px-4 py-20 text-center md:px-8">
@@ -72,6 +122,27 @@ function ProductDetailPage() {
 
   return (
     <PageLayout>
+      <JsonLd
+        data={[
+          productJsonLd({
+            id: product.id,
+            name: product.name,
+            description: product.description,
+            image: product.image,
+            price: product.price,
+            sku: product.sku,
+            category: product.category,
+            rating: product.rating,
+            reviewCount: product.reviewCount,
+            stock: product.stock,
+          }),
+          breadcrumbJsonLd([
+            { name: "Home", path: "/" },
+            { name: "Shop", path: "/shop" },
+            { name: product.name, path: `/shop/${product.id}` },
+          ]),
+        ]}
+      />
       <div className="mx-auto max-w-7xl px-4 py-8 md:px-8 md:py-12">
         <p className="text-sm text-muted-foreground">
           <Link to="/shop" className="hover:text-burgundy">Shop</Link>
@@ -235,7 +306,7 @@ function ProductDetailPage() {
             Complete your look with matching handcrafted pieces.
           </p>
           <div className="mt-10 grid auto-rows-fr items-stretch gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {trendingProducts.map((p, i) => (
+            {related.map((p, i) => (
               <div key={p.id} className="h-full">
                 <RecommendationCard product={p} featured={i === 0} />
               </div>

@@ -1,24 +1,22 @@
 import {
-  createCredentialToken,
-  writeCredentialCookie,
-} from "@/server/credential-session";
+  authenticateUserWithCognito,
+  registerUserWithCognito,
+} from "@/server/cognito-auth.server";
 import type { ClientUserDto } from "@/server/user-types";
-import { registerUser as registerUserDb, verifyUserCredentials } from "@/server/users";
 
+/** Email/password login — stores and verifies users in Amazon Cognito. */
 export async function authenticateUser(input: {
   email: string;
   password: string;
 }): Promise<ClientUserDto> {
-  const user = await verifyUserCredentials(input);
-  const token = await createCredentialToken(user);
-  writeCredentialCookie(token);
-  return user;
+  return authenticateUserWithCognito(input);
 }
 
+/** Email/password signup — creates the user in Amazon Cognito. */
 export async function registerUser(input: {
   name: string;
   email: string;
   password: string;
 }): Promise<ClientUserDto> {
-  return registerUserDb(input);
+  return registerUserWithCognito(input);
 }

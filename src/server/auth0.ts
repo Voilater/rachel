@@ -4,7 +4,7 @@ import { getSession } from "start-authjs";
 
 import { authConfig, isAuth0Configured } from "@/lib/auth0-config";
 import { queryOne } from "@/server/db";
-import { findOrCreateOAuthUser } from "@/server/users";
+import { findOrCreateOAuthUser } from "@/server/users.server";
 
 export interface AccountStatus {
   oauthActive: boolean;

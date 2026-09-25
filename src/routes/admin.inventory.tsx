@@ -1,13 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Minus, Pencil, Plus, Trash2, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { ProductImageField } from "@/components/admin/ProductImageField";
 import { useInventory, type InventoryItem } from "@/lib/inventory-store";
-import type { ShopCategory } from "@/lib/site-data";
+import {
+  DEFAULT_SHOP_CATEGORIES,
+  generateSku,
+  mergeShopCategories,
+  type ShopCategory,
+} from "@/lib/shop-categories";
 import { formatPrice, siteConfig } from "@/lib/site-data";
-
-const CATEGORIES: ShopCategory[] = ["Necklaces", "Bracelets", "Earrings", "DIY Kits"];
+import { addShopCategory, getShopCategoryOptions } from "@/server/categories";
 
 export const Route = createFileRoute("/admin/inventory")({
   head: () => ({
@@ -19,7 +23,9 @@ export const Route = createFileRoute("/admin/inventory")({
 type FormState = {
   name: string;
   sku: string;
-  category: ShopCategory;
+  /** Dropdown value — may be "Custom" while typing a new label. */
+  categorySelect: string;
+  customCategory: string;
   price: string;
   stock: string;
   description: string;
@@ -29,12 +35,17 @@ type FormState = {
 const emptyForm: FormState = {
   name: "",
   sku: "",
-  category: "Bracelets",
+  categorySelect: "Bracelets",
+  customCategory: "",
   price: "",
   stock: "10",
   description: "",
-  image: "https://images.unsplash.com/photo-1611591437281-460bfac57583?w=600&h=600&fit=crop",
+  image: "/images/name-bracelet.png",
 };
+
+function isKnownCategory(value: string, options: string[]) {
+  return options.some((c) => c.toLowerCase() === value.toLowerCase() && c !== "Custom");
+}
 
 function AdminInventoryPage() {
   const {
@@ -49,6 +60,33 @@ function AdminInventoryPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [search, setSearch] = useState("");
+  const [categories, setCategories] = useState<ShopCategory[]>([
+    ...DEFAULT_SHOP_CATEGORIES,
+  ]);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getShopCategoryOptions()
+      .then((rows) => {
+        if (!cancelled) setCategories(rows);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [products]);
+
+  const categoryOptions = useMemo(
+    () =>
+      mergeShopCategories(
+        DEFAULT_SHOP_CATEGORIES,
+        categories,
+        products.map((p) => p.category),
+      ),
+    [categories, products],
+  );
 
   const filtered = products.filter(
     (p) =>
@@ -59,43 +97,65 @@ function AdminInventoryPage() {
   const openCreate = () => {
     setEditingId(null);
     setForm(emptyForm);
+    setFormError(null);
     setShowForm(true);
   };
 
   const openEdit = (product: InventoryItem) => {
+    const known = isKnownCategory(product.category, categoryOptions);
     setEditingId(product.id);
     setForm({
       name: product.name,
       sku: product.sku,
-      category: product.category,
+      categorySelect: known ? product.category : "Custom",
+      customCategory: known ? "" : product.category,
       price: String(product.price),
       stock: String(product.stock),
       description: product.description,
       image: product.image,
     });
+    setFormError(null);
     setShowForm(true);
   };
 
-  const [saving, setSaving] = useState(false);
+  const resolveCategory = async (): Promise<string> => {
+    if (form.categorySelect !== "Custom") {
+      return form.categorySelect;
+    }
+    const label = form.customCategory.trim();
+    if (!label) {
+      throw new Error("Enter a name for the custom category.");
+    }
+    const next = await addShopCategory({ data: { category: label } });
+    setCategories(next);
+    return label;
+  };
 
   const handleSave = async () => {
     const price = Number(form.price);
     const stock = Number(form.stock);
-    if (!form.name.trim() || !Number.isFinite(price) || !Number.isFinite(stock) || !form.image.trim()) return;
-
-    const payload = {
-      name: form.name.trim(),
-      sku: form.sku.trim() || `VK-${Date.now().toString().slice(-6)}`,
-      category: form.category,
-      price,
-      stock,
-      description: form.description.trim() || form.name.trim(),
-      image: form.image.trim(),
-      rating: 4.5,
-    };
+    if (!form.name.trim() || !Number.isFinite(price) || !Number.isFinite(stock) || !form.image.trim()) {
+      setFormError("Name, price, stock, and image are required.");
+      return;
+    }
 
     setSaving(true);
+    setFormError(null);
     try {
+      const category = await resolveCategory();
+      const payload = {
+        name: form.name.trim(),
+        sku:
+          form.sku.trim() ||
+          generateSku(form.name.trim(), products.map((p) => p.sku)),
+        category,
+        price,
+        stock,
+        description: form.description.trim() || form.name.trim(),
+        image: form.image.trim(),
+        rating: 4.5,
+      };
+
       if (editingId) {
         await updateProduct(editingId, payload);
       } else {
@@ -103,6 +163,8 @@ function AdminInventoryPage() {
       }
       setShowForm(false);
       setEditingId(null);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Could not save product.");
     } finally {
       setSaving(false);
     }
@@ -170,7 +232,9 @@ function AdminInventoryPage() {
                 </button>
                 <span
                   className={
-                    product.stock <= 5 ? "min-w-[2rem] text-center font-semibold text-burgundy" : "min-w-[2rem] text-center font-medium"
+                    product.stock <= 5
+                      ? "min-w-[2rem] text-center font-semibold text-burgundy"
+                      : "min-w-[2rem] text-center font-medium"
                   }
                 >
                   {product.stock}
@@ -317,24 +381,62 @@ function AdminInventoryPage() {
                 className="w-full rounded-lg border border-border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
               />
               <div className="grid gap-4 sm:grid-cols-2">
-                <input
-                  placeholder="SKU"
-                  value={form.sku}
-                  onChange={(e) => setForm({ ...form, sku: e.target.value })}
-                  className="rounded-lg border border-border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
-                />
-                <select
-                  value={form.category}
-                  onChange={(e) =>
-                    setForm({ ...form, category: e.target.value as ShopCategory })
-                  }
-                  className="rounded-lg border border-border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
-                >
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                <label className="block text-sm">
+                  <span className="mb-1.5 block font-medium text-foreground">SKU</span>
+                  <input
+                    placeholder="Auto or custom code"
+                    value={form.sku}
+                    onChange={(e) => setForm({ ...form, sku: e.target.value })}
+                    className="w-full rounded-lg border border-border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1.5 block font-medium text-foreground">Category</span>
+                  <select
+                    value={form.categorySelect}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        categorySelect: e.target.value,
+                        customCategory:
+                          e.target.value === "Custom" ? form.customCategory : "",
+                      })
+                    }
+                    className="w-full rounded-lg border border-border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
+                  >
+                    {categoryOptions.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
+
+              {form.categorySelect === "Custom" && (
+                <label className="block text-sm">
+                  <span className="mb-1.5 block font-medium text-foreground">
+                    Custom category name
+                  </span>
+                  <input
+                    autoFocus
+                    placeholder="e.g. Anklets, Anti tarnish spray"
+                    value={form.customCategory}
+                    onChange={(e) => setForm({ ...form, customCategory: e.target.value })}
+                    className="w-full rounded-lg border border-border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
+                  />
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    This name is saved and will appear in the category list next time.
+                  </span>
+                </label>
+              )}
+
+              {formError && (
+                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {formError}
+                </p>
+              )}
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <input
                   type="number"
@@ -372,7 +474,7 @@ function AdminInventoryPage() {
             <div className="border-t border-border px-5 py-4">
               <button
                 type="button"
-                onClick={handleSave}
+                onClick={() => void handleSave()}
                 disabled={saving}
                 className="w-full rounded-lg bg-burgundy py-3 text-sm font-bold uppercase tracking-wider text-white hover:opacity-90 disabled:opacity-60"
               >

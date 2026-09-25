@@ -71,7 +71,7 @@ export function ProductImageField({
 
       {mode === "url" ? (
         <input
-          placeholder="https://images.unsplash.com/..."
+          placeholder="/images/name-bracelet.png"
           value={value.startsWith("data:") ? "" : value}
           onChange={(e) => onChange(e.target.value)}
           className="w-full rounded-lg border border-border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"

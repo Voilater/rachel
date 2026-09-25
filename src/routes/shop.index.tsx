@@ -16,15 +16,21 @@ import { staticInventoryItems } from "@/lib/static-catalog";
 import { isStaticSite } from "@/lib/static-site";
 import { siteConfig } from "@/lib/site-data";
 import { listProducts } from "@/server/products";
+import { buildPageHead } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
 const PER_PAGE = 9;
 const SORT_OPTIONS = ["Featured", "Price: Low to High", "Price: High to Low", "Newest"] as const;
 
 export const Route = createFileRoute("/shop/")({
-  head: () => ({
-    meta: [{ title: `Shop — ${siteConfig.name}` }],
-  }),
+  head: () =>
+    buildPageHead({
+      title: `Shop Handcrafted Jewelry`,
+      description:
+        "Browse Rachel Paradise bracelets, chains, beads, earrings, and custom jewelry — handcrafted pieces ready to shop online.",
+      path: "/shop",
+      keywords: ["shop jewelry", "buy bracelets online", "handcrafted beads", "Rachel Paradise shop"],
+    }),
   validateSearch: (search: Record<string, unknown>) => ({
     q: typeof search.q === "string" ? search.q : "",
   }),
@@ -138,7 +144,11 @@ function ShopPage() {
         </div>
 
         <div className="mt-10 flex flex-col gap-10 lg:flex-row lg:items-start">
-          <ShopFilters filters={filters} onChange={handleFiltersChange} />
+          <ShopFilters
+            filters={filters}
+            onChange={handleFiltersChange}
+            categories={products.map((p) => p.category)}
+          />
 
           <div className="min-w-0 flex-1">
             {pageItems.length === 0 ? (

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ChevronDown, ChevronUp, Package, User, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   formatOrderDate,
@@ -29,19 +29,28 @@ const STATUS_OPTIONS: OrderStatus[] = [
 ];
 
 function AdminOrdersPage() {
-  const { orders, updateOrderStatus } = useOrders();
+  const { orders, loading, error, refresh, updateOrderStatus } = useOrders();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [detailOrder, setDetailOrder] = useState<StoredOrder | null>(null);
 
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
   const filtered = orders.filter((order) => {
     const q = search.toLowerCase();
+    const paymentId = order.payment?.razorpayPaymentId?.toLowerCase() ?? "";
+    const razorpayOrderId = order.payment?.razorpayOrderId?.toLowerCase() ?? "";
     const matchesSearch =
       !q ||
       order.orderNumber.toLowerCase().includes(q) ||
       order.customer.name.toLowerCase().includes(q) ||
-      order.customer.email.toLowerCase().includes(q);
+      order.customer.email.toLowerCase().includes(q) ||
+      order.customer.phone.toLowerCase().includes(q) ||
+      paymentId.includes(q) ||
+      razorpayOrderId.includes(q);
     const matchesStatus = statusFilter === "all" || order.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -64,7 +73,7 @@ function AdminOrdersPage() {
       <div className="mt-6 flex flex-wrap gap-3">
         <input
           type="search"
-          placeholder="Search order #, name, or email…"
+          placeholder="Search order #, payment id, name, or email…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full max-w-md rounded-lg border border-border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
@@ -79,7 +88,21 @@ function AdminOrdersPage() {
             <option key={s} value={s}>{orderStatusLabels[s]}</option>
           ))}
         </select>
+        <button
+          type="button"
+          onClick={() => void refresh()}
+          className="rounded-lg border border-border px-4 py-2.5 text-sm font-medium hover:bg-blush-section"
+        >
+          Refresh
+        </button>
       </div>
+
+      {error ? (
+        <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+      ) : null}
+      {loading && orders.length === 0 ? (
+        <p className="mt-10 text-center text-sm text-muted-foreground">Loading orders…</p>
+      ) : null}
 
       {filtered.length === 0 ? (
         <div className="mt-10 rounded-2xl border border-border bg-white p-12 text-center">
@@ -175,6 +198,11 @@ function OrderCard({
               {order.customer.name} · {order.customer.email}
             </p>
             <p className="text-xs text-muted-foreground">{formatOrderDate(order.createdAt)}</p>
+            {order.payment?.razorpayPaymentId ? (
+              <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
+                Payment ID: {order.payment.razorpayPaymentId}
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -232,6 +260,11 @@ function OrderCard({
               <p className="mt-2 font-medium">{order.customer.name}</p>
               <p className="text-sm text-muted-foreground">{order.customer.email}</p>
               <p className="text-sm text-muted-foreground">{order.customer.phone}</p>
+              {order.payment?.razorpayPaymentId ? (
+                <p className="mt-3 break-all font-mono text-xs text-muted-foreground">
+                  Payment: {order.payment.razorpayPaymentId}
+                </p>
+              ) : null}
             </div>
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -339,6 +372,24 @@ function OrderDetailModal({
               <p className="text-sm text-burgundy">{order.estimatedDelivery}</p>
             </section>
           </div>
+
+          {(order.payment?.razorpayPaymentId || order.payment?.razorpayOrderId) && (
+            <section className="mt-6 rounded-xl border border-border p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Razorpay payment
+              </p>
+              {order.payment.razorpayPaymentId ? (
+                <p className="mt-3 break-all font-mono text-sm text-foreground">
+                  {order.payment.razorpayPaymentId}
+                </p>
+              ) : null}
+              {order.payment.razorpayOrderId ? (
+                <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
+                  Order: {order.payment.razorpayOrderId}
+                </p>
+              ) : null}
+            </section>
+          )}
 
           <h3 className="mt-6 text-sm font-bold uppercase tracking-wider text-muted-foreground">
             Items

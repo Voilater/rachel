@@ -6,32 +6,41 @@ import { ProfileAvatar } from "@/components/auth/ProfileAvatar";
 import { SignOutButton } from "@/components/auth/SignOutLink";
 import { useAuth } from "@/lib/auth";
 import { clientUserFromAccountStatus, clientUserFromSessionUser } from "@/lib/client-user";
-import { siteConfig } from "@/lib/site-data";
-import { getAccountStatus } from "@/server/auth0";
-import { getSessionUser } from "@/server/session";
+import {
+  formatOrderDate,
+  orderStatusLabels,
+  orderStatusStyles,
+  type StoredOrder,
+} from "@/lib/orders-store";
+import { formatPrice, siteConfig } from "@/lib/site-data";
+import { buildPageHead } from "@/lib/seo";
+import { getAccountPageData } from "@/server/account-page";
 import { fetchProfileForEmail } from "@/server/cart";
-import { getAccountProfile, saveAccountProfile } from "@/server/profile";
+import { listMyOrders } from "@/server/orders";
+import { saveAccountProfile } from "@/server/profile";
 import type { AccountProfileDto } from "@/server/user-types";
 import { cn } from "@/lib/utils";
 import { emptyAccountStatus, isStaticSite } from "@/lib/static-site";
 
 export const Route = createFileRoute("/account")({
-  head: () => ({
-    meta: [{ title: `My Account — ${siteConfig.name}` }],
-  }),
+  head: () =>
+    buildPageHead({
+      title: `My Account`,
+      description: `Manage your ${siteConfig.brandName} account and profile.`,
+      path: "/account",
+      noIndex: true,
+    }),
   loader: async () => {
     if (isStaticSite) {
       return {
         authStatus: emptyAccountStatus,
         sessionUser: null,
         profile: null,
+        myOrders: [] as StoredOrder[],
       };
     }
 
-    const authStatus = await getAccountStatus();
-    const sessionUser = await getSessionUser();
-    const profile = await getAccountProfile();
-    return { authStatus, sessionUser, profile };
+    return getAccountPageData();
   },
   component: AccountPage,
 });
@@ -41,6 +50,7 @@ function AccountPage() {
     authStatus,
     sessionUser: loaderSessionUser,
     profile: loaderProfile,
+    myOrders: loaderOrders,
   } = Route.useLoaderData();
   const navigate = useNavigate();
   const { clientUser, applyClientUser } = useAuth();
@@ -50,6 +60,9 @@ function AccountPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [myOrders, setMyOrders] = useState<StoredOrder[]>(loaderOrders ?? []);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
 
   const sessionUser =
     (loaderSessionUser ? clientUserFromSessionUser(loaderSessionUser) : null) ??
@@ -70,6 +83,35 @@ function AccountPage() {
       navigate({ to: "/login" });
     }
   }, [hydrated, sessionUser, navigate]);
+
+  useEffect(() => {
+    setMyOrders(loaderOrders ?? []);
+  }, [loaderOrders]);
+
+  useEffect(() => {
+    if (!hydrated || !sessionUser || isStaticSite) return;
+    // Loader already fetched; refresh once on client in case session hydrated late.
+    if ((loaderOrders?.length ?? 0) > 0) return;
+    let cancelled = false;
+    setOrdersLoading(true);
+    setOrdersError(null);
+    void listMyOrders()
+      .then((rows) => {
+        if (!cancelled) setMyOrders(rows as StoredOrder[]);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setMyOrders([]);
+          setOrdersError(err instanceof Error ? err.message : "Could not load orders.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setOrdersLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated, sessionUser, loaderOrders]);
 
   useEffect(() => {
     if (loaderProfile) {
@@ -167,14 +209,92 @@ function AccountPage() {
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-burgundy/70">
               {siteConfig.name} member
             </p>
-            <h1 className="font-serif text-3xl text-burgundy md:text-4xl">Your profile</h1>
+            <h1 className="font-serif text-3xl text-burgundy md:text-4xl">Your account</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Manage how we reach you for orders, deliveries, and studio appointments.
+              Profile, shipping details, and your orders.
             </p>
           </div>
         </div>
 
-        <form onSubmit={handleSave} className="mt-10 space-y-8">
+        <div className="mt-8 flex gap-2 border-b border-border">
+          <a
+            href="#orders"
+            className="border-b-2 border-burgundy px-4 py-2 text-sm font-semibold text-burgundy"
+          >
+            My orders
+          </a>
+          <a
+            href="#profile"
+            className="border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted-foreground hover:text-burgundy"
+          >
+            Profile
+          </a>
+        </div>
+
+        <section
+          id="orders"
+          className="mt-8 scroll-mt-24 rounded-2xl border border-border bg-white p-6 shadow-sm"
+        >
+          <h2 className="font-serif text-xl text-burgundy">My orders</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Orders placed while signed in with this account.
+          </p>
+          {ordersLoading ? (
+            <p className="mt-6 text-sm text-muted-foreground">Loading orders…</p>
+          ) : ordersError ? (
+            <p className="mt-6 text-sm text-red-700">{ordersError}</p>
+          ) : myOrders.length === 0 ? (
+            <p className="mt-6 text-sm text-muted-foreground">
+              No orders yet for <span className="font-medium text-foreground">{profile.email}</span>.{" "}
+              <Link to="/shop" search={{ q: "" }} className="text-burgundy hover:underline">
+                Browse the shop
+              </Link>
+            </p>
+          ) : (
+            <ul className="mt-6 space-y-4">
+              {myOrders.map((order) => (
+                <li
+                  key={order.id}
+                  className="rounded-xl border border-border bg-blush-section/40 p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-foreground">{order.orderNumber}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {formatOrderDate(order.createdAt)}
+                      </p>
+                      {order.payment?.razorpayPaymentId ? (
+                        <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
+                          Payment ID: {order.payment.razorpayPaymentId}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium text-burgundy">{formatPrice(order.total)}</p>
+                      <span
+                        className={cn(
+                          "mt-1 inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium",
+                          orderStatusStyles[order.status],
+                        )}
+                      >
+                        {orderStatusLabels[order.status]}
+                      </span>
+                    </div>
+                  </div>
+                  <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
+                    {order.items.map((item, idx) => (
+                      <li key={`${order.id}-${idx}`}>
+                        {item.name} × {item.quantity}
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <form id="profile" onSubmit={handleSave} className="mt-10 scroll-mt-24 space-y-8">
           <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">
             <h2 className="font-serif text-xl text-burgundy">Personal details</h2>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -258,7 +378,7 @@ function AccountPage() {
                     value={profile.shippingCity}
                     onChange={(e) => setProfile({ ...profile, shippingCity: e.target.value })}
                     className="mt-2 w-full rounded-xl border border-border px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
-                    placeholder="London"
+                    placeholder="Madurai"
                   />
                 </label>
                 <label className="block">

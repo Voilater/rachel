@@ -1,14 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 
-import {
-  getUserProfileByEmail,
-  updateUserProfile,
-  type AccountProfileDto,
-} from "@/server/users";
+import type { AccountProfileDto } from "@/server/user-types";
 
 export const getAccountProfile = createServerFn({ method: "GET" }).handler(
   async (): Promise<AccountProfileDto | null> => {
     const { resolveSessionUser } = await import("@/server/session-resolve");
+    const { getUserProfileByEmail } = await import("@/server/users.server");
     const sessionUser = await resolveSessionUser();
     if (!sessionUser) return null;
 
@@ -41,6 +38,7 @@ export const saveAccountProfile = createServerFn({ method: "POST" })
   }) => data)
   .handler(async ({ data }) => {
     const { resolveSessionUser } = await import("@/server/session-resolve");
+    const { updateUserProfile } = await import("@/server/users.server");
     const sessionUser = await resolveSessionUser();
     if (!sessionUser) {
       throw new Error("Please sign in to update your profile.");
@@ -48,10 +46,10 @@ export const saveAccountProfile = createServerFn({ method: "POST" })
 
     const name = data.name.trim();
     if (!name) {
-      throw new Error("Please enter your name.");
+      throw new Error("Name is required.");
     }
 
-    return await updateUserProfile({
+    return updateUserProfile({
       email: sessionUser.email,
       name,
       phone: data.phone.trim(),

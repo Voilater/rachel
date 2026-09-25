@@ -13,14 +13,17 @@ import type { ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { CartDrawer } from "@/components/CartDrawer";
 import { ClientSessionSync } from "@/components/auth/ClientSessionSync";
+import { PageViewAuditor } from "@/components/PageViewAuditor";
 import { AuthProvider } from "@/lib/auth";
 import { CartProvider } from "@/lib/cart";
 import { InventoryProvider } from "@/lib/inventory-store";
 import { OrdersProvider } from "@/lib/orders-store";
 import { emptyAccountStatus, isStaticSite } from "@/lib/static-site";
 import { siteConfig } from "@/lib/site-data";
+import { buildPageHead, organizationJsonLd, websiteJsonLd } from "@/lib/seo";
 import { getAccountStatus } from "@/server/auth0";
 import { getSessionUser } from "@/server/session";
+import { JsonLd } from "@/components/JsonLd";
 
 function NotFoundComponent() {
   return (
@@ -42,8 +45,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     }
 
     try {
-      const accountStatus = await getAccountStatus();
-      const sessionUser = await getSessionUser();
+      const [accountStatus, sessionUser] = await Promise.all([
+        getAccountStatus(),
+        getSessionUser(),
+      ]);
       return { accountStatus, sessionUser };
     } catch {
       return {
@@ -59,23 +64,40 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       };
     }
   },
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: `${siteConfig.name} — ${siteConfig.title}` },
-      { name: "description", content: siteConfig.description },
-    ],
-    links: [
-      { rel: "stylesheet", href: appCss },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Reem+Kufi+Fun:wght@400;500;600;700&display=swap",
-      },
-    ],
-  }),
+  head: () => {
+    const seo = buildPageHead({
+      title: `${siteConfig.name} — ${siteConfig.title}`,
+      description: siteConfig.description,
+      path: "/",
+      image: siteConfig.logo,
+      keywords: [
+        "Rachel Paradise",
+        "handcrafted jewelry",
+        "custom bracelets",
+        "bead jewelry India",
+        "premium beads",
+      ],
+    });
+    return {
+      meta: [
+        { charSet: "utf-8" },
+        { name: "viewport", content: "width=device-width, initial-scale=1" },
+        ...seo.meta,
+      ],
+      links: [
+        { rel: "stylesheet", href: appCss },
+        { rel: "icon", href: siteConfig.logoIcon, type: "image/png" },
+        { rel: "apple-touch-icon", href: siteConfig.logoIcon },
+        ...seo.links,
+        { rel: "preconnect", href: "https://fonts.googleapis.com" },
+        { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+        {
+          rel: "stylesheet",
+          href: "https://fonts.googleapis.com/css2?family=Reem+Kufi+Fun:wght@400;500;600;700&display=swap",
+        },
+      ],
+    };
+  },
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
@@ -123,7 +145,9 @@ function RootComponent() {
         <InventoryProvider>
           <OrdersProvider>
             <CartProvider>
+              <JsonLd data={[organizationJsonLd(), websiteJsonLd()]} />
               <ClientSessionSync />
+              <PageViewAuditor />
               <Outlet />
               <CartDrawer />
             </CartProvider>

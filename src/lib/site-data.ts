@@ -2,26 +2,37 @@ import {
   additionalShopProducts,
   tagCoreProducts,
 } from "@/lib/shop-filters";
+import type { ShopCategory } from "@/lib/shop-categories";
+
+export type { ShopCategory } from "@/lib/shop-categories";
+export {
+  LEGACY_CATEGORY_MAP,
+  SHOP_CATEGORIES,
+  normalizeShopCategory,
+} from "@/lib/shop-categories";
 
 export const siteConfig = {
-  name: "VK",
-  brandName: "Rose & Gilded",
-  title: "Handcrafted Premium Jewelry",
+  name: "Rachel Paradise",
+  brandName: "Rachel Paradise",
+  logo: "/images/rachel-paradise-logo.png",
+  logoIcon: "/images/rachel-paradise-logo-icon.png",
+  title: "Handmade Jewelry with Love",
   description:
-    "Discover handcrafted premium beads and timeless jewelry, or create your own unique masterpiece with our customization service.",
-  email: "hello@vkstudio.com",
-  phone: "+91 98765 43210",
-  location: "Mumbai, India",
+    "Crafted with care, passion, and a little sparkle to make every moment special. Because you deserve jewellery as unique as you are.",
+  email: "rachelparadise15@gmail.com",
+  phone: "+91 90428 45836",
+  location: "Madurai, India",
   studio: {
-    address: "124 Artisan Row, Savile Quarter, London, W1S 3PR",
+    address: "2/1013, Ezhil Nagar, Lilly Malar Street, Iyer Bungalow, Madurai 625014",
     hours: "Mon – Sat: 10am – 6pm",
   },
   atelierHours: {
     weekdays: "Monday – Friday: 10am – 6pm",
-    saturday: "Saturday: 11am – 4pm (PST)",
+    saturday: "Saturday: 11am – 4pm",
   },
-  whatsapp: "+919874561230",
-  tagline: "Exquisite beads and handcrafted jewelry for the discerning soul.",
+  whatsapp: "+919042845836",
+  tagline: "Where every jewel is handmade with love.",
+  welcomeLine: "Welcome to Rachel Paradise",
   instagram: {
     handle: "rachel_paradise_",
     profileUrl:
@@ -38,8 +49,6 @@ export const navLinks = [
   { to: "/philosophy", label: "About" },
   { to: "/contact", label: "Contact Us" },
 ] as const;
-
-export type ShopCategory = "Necklaces" | "Bracelets" | "Earrings" | "DIY Kits";
 
 export interface ShopProduct {
   id: string;
@@ -64,89 +73,268 @@ export interface ShopProduct {
 
 export const coreShopProducts: ShopProduct[] = [
   {
-    id: "ethereal-rose-bracelet",
-    name: "Ethereal Rose Bracelet",
+    id: "name-bracelet",
+    name: "Name Bracelet",
     price: 599,
-    cartPrice: 125,
+    cartPrice: 599,
     rating: 4.9,
-    reviewCount: 124,
+    reviewCount: 48,
     description:
-      "Delicate rose-toned beads with a whimsical cat charm — a playful accent for everyday elegance.",
+      "Personalized letter beads with purple crackle beads, heart accents, and a unicorn charm — handcrafted to your name.",
     longDescription:
-      "Hand-strung Rose Quartz beads paired with a 14k gold-filled clasp and delicate charm accents. Each stone is selected for its soft blush hue and natural warmth — a piece that feels personal from the first wear.",
-    image:
-      "https://images.unsplash.com/photo-1611591437281-460bfac57583?w=800&h=800&fit=crop",
-    images: [
-      "https://images.unsplash.com/photo-1611591437281-460bfac57583?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1573408301185-9146fe634ad0?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1615485500834-bc10199bc4c5?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=800&h=800&fit=crop",
-    ],
+      "Our signature Name Bracelet is handmade with purple crackle beads, iridescent heart accents, and a dangling unicorn charm. Customize the letter beads with any name. Soft stretch fit for everyday wear.",
+    image: "/images/name-bracelet.png",
+    images: ["/images/name-bracelet.png"],
     category: "Bracelets",
-    badge: "New In",
+    badge: "Original",
     featured: true,
     sizes: ["Small (6.5\")", "Medium (7.0\")", "Large (7.5\")"],
     colors: [
-      { id: "rose", hex: "#e8b4b8", label: "Rose" },
-      { id: "sky", hex: "#b0e0e6", label: "Sky" },
+      { id: "purple", hex: "#7b4aa8", label: "Purple" },
+      { id: "clear", hex: "#e8e4f0", label: "Clear" },
     ],
   },
   {
-    id: "celestial-pearl-drops",
-    name: "Celestial Pearl Drops",
-    price: 1800,
-    cartPrice: 180,
-    cartSubtitle: "Signature Collection",
-    rating: 5.0,
-    description:
-      "Gold drop earrings crowned with luminous pearls — refined movement for evening occasions.",
-    image:
-      "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=600&h=600&fit=crop",
-    category: "Earrings",
-  },
-  {
-    id: "azure-horizon-layer",
-    name: "Azure Horizon Layer",
-    price: 2400,
-    rating: 4.8,
-    description:
-      "A cascading strand of creamy pearls with subtle iridescence — layerable luxury.",
-    image:
-      "https://images.unsplash.com/photo-1599643478518-a784e5dc4c2f?w=600&h=600&fit=crop",
-    category: "Necklaces",
-  },
-  {
-    id: "midnight-glow-band",
-    name: "Midnight Glow Band",
-    price: 950,
-    rating: 4.7,
-    description:
-      "Deep onyx beads with a satin finish — understated drama for day-to-night wear.",
-    image:
-      "https://images.unsplash.com/photo-1573408301185-9146fe634ad0?w=600&h=600&fit=crop",
-    category: "Bracelets",
-  },
-  {
-    id: "artisan-starter-kit",
-    name: "Artisan Starter Kit",
-    price: 650,
-    rating: 5.0,
-    description:
-      "Curated beads, cord, and tools to begin your first handcrafted piece at home.",
-    image:
-      "https://images.unsplash.com/photo-1615485500834-bc10199bc4c5?w=600&h=600&fit=crop",
-    category: "DIY Kits",
-  },
-  {
-    id: "sun-kissed-choker",
-    name: "Sun-Kissed Choker",
-    price: 1100,
+    id: "magnetic-bracelet",
+    name: "Magnetic Bracelet",
+    price: 799,
+    cartPrice: 799,
     rating: 4.9,
+    reviewCount: 36,
     description:
-      "Warm golden beads in a close-fit choker — radiant minimalism for sunlit afternoons.",
-    image:
-      "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=600&h=600&fit=crop",
-    category: "Necklaces",
+      "Matching pink couple bracelets with a magnetic butterfly clasp — they snap together as one.",
+    longDescription:
+      "A pair of frosted pink beaded bracelets connected by a magnetic butterfly charm. Wear them separately or bring them together — the halves snap into a full butterfly. Silver star chain accents on each wrist. Perfect for couples or best friends.",
+    image: "/images/magnetic-bracelet.png",
+    images: ["/images/magnetic-bracelet.png"],
+    category: "Bracelets",
+    badge: "Original",
+    featured: true,
+    sizes: ["Small (6.5\")", "Medium (7.0\")", "Large (7.5\")"],
+    colors: [
+      { id: "pink", hex: "#f3b6c4", label: "Pink" },
+      { id: "silver", hex: "#c0c0c0", label: "Silver" },
+    ],
+  },
+  {
+    id: "chip-bead-bracelet",
+    name: "Chip Bead Bracelet",
+    price: 549,
+    cartPrice: 549,
+    rating: 4.8,
+    reviewCount: 28,
+    description:
+      "Turquoise chip stones with sky-blue faceted beads and silver spacers — natural texture, handmade finish.",
+    longDescription:
+      "Hand-strung Chip Bead Bracelet with natural turquoise chip stones, bright cyan faceted beads, and polished silver spacers. Finished with a silver lobster clasp. Lightweight and easy for everyday wear.",
+    image: "/images/chip-bead-bracelet.png",
+    images: ["/images/chip-bead-bracelet.png"],
+    category: "Bracelets",
+    badge: "Original",
+    featured: true,
+    sizes: ["Small (6.5\")", "Medium (7.0\")", "Large (7.5\")"],
+    colors: [
+      { id: "turquoise", hex: "#7ec8c3", label: "Turquoise" },
+      { id: "sky", hex: "#5ec8e8", label: "Sky Blue" },
+    ],
+  },
+  {
+    id: "watch-bracelet",
+    name: "Watch Bracelet",
+    price: 899,
+    cartPrice: 899,
+    rating: 4.9,
+    reviewCount: 31,
+    description:
+      "Teal and smoky-grey beaded bracelet watch with a crystal rose-gold face and moon charm.",
+    longDescription:
+      "A handmade Watch Bracelet with alternating teal cat-eye and smoky-grey beads. The rose-gold quartz watch face has a crystal flower bezel, plus a sparkling crescent moon charm. Stretch fit for comfortable everyday wear.",
+    image: "/images/watch-bracelet.png",
+    images: ["/images/watch-bracelet.png"],
+    category: "Bracelets",
+    badge: "Original",
+    featured: true,
+    sizes: ["Small (6.5\")", "Medium (7.0\")", "Large (7.5\")"],
+    colors: [
+      { id: "teal", hex: "#2bb5b0", label: "Teal" },
+      { id: "smoke", hex: "#8a8a8a", label: "Smoky Grey" },
+    ],
+  },
+  {
+    id: "tulip-bracelet",
+    name: "Tulip Bracelet",
+    price: 649,
+    cartPrice: 649,
+    rating: 4.9,
+    reviewCount: 22,
+    description:
+      "Lilac tulip charms with purple crackle beads and clear spacers — a floral handmade stretch bracelet.",
+    longDescription:
+      "Handcrafted Tulip Bracelet with four lilac tulip charms, green leaf beads, vibrant purple crackle glass, and faceted clear spacers. Soft stretch fit with a whimsical spring floral look.",
+    image: "/images/tulip-bracelet.png",
+    images: ["/images/tulip-bracelet.png"],
+    category: "Bracelets",
+    badge: "Original",
+    featured: true,
+    sizes: ["Small (6.5\")", "Medium (7.0\")", "Large (7.5\")"],
+    colors: [
+      { id: "lilac", hex: "#c4a4d8", label: "Lilac" },
+      { id: "purple", hex: "#8b3a9b", label: "Purple" },
+    ],
+  },
+  {
+    id: "flower-bracelet",
+    name: "Flower Bracelet",
+    price: 599,
+    cartPrice: 599,
+    rating: 4.9,
+    reviewCount: 27,
+    description:
+      "Alternating red and white daisy flowers with yellow centers — clasp and extender chain for a perfect fit.",
+    longDescription:
+      "Handmade Flower Bracelet in a daisy-chain style: white opaque petals and faceted red crystal petals, each with a golden-yellow center. Linked with clear seed beads, finished with a silver lobster clasp and adjustable extender chain.",
+    image: "/images/flower-bracelet.png",
+    images: ["/images/flower-bracelet.png"],
+    category: "Bracelets",
+    badge: "Original",
+    featured: true,
+    sizes: ["Small (6.5\")", "Medium (7.0\")", "Large (7.5\")"],
+    colors: [
+      { id: "red", hex: "#d43b3b", label: "Red" },
+      { id: "white", hex: "#f5f5f5", label: "White" },
+    ],
+  },
+  {
+    id: "pink-ad-stone-pendant-chain",
+    name: "Pink AD Stone Pendant Chain",
+    price: 999,
+    cartPrice: 999,
+    rating: 4.9,
+    reviewCount: 19,
+    description:
+      "Hot-pink bead chain with a gold AD floral pendant — sparkling teardrop stones and S-hook clasp.",
+    longDescription:
+      "Elegant Pink AD Stone Pendant Chain with translucent magenta beads, gold spacer accents, and a V-shaped crystal connector. The centerpiece is a five-petal pink AD flower pendant. Finished with a gold S-hook clasp for easy wear.",
+    image: "/images/pink-ad-stone-pendant-chain.png",
+    images: ["/images/pink-ad-stone-pendant-chain.png"],
+    category: "Chain",
+    badge: "Original",
+    featured: true,
+    sizes: ["16\"", "18\"", "20\""],
+    colors: [
+      { id: "pink", hex: "#e91e8c", label: "Pink" },
+      { id: "gold", hex: "#d4af37", label: "Gold" },
+    ],
+  },
+  {
+    id: "red-ad-stone-invisible-chain",
+    name: "Red AD Stone Invisible Chain",
+    price: 899,
+    cartPrice: 899,
+    rating: 4.9,
+    reviewCount: 16,
+    description:
+      "Delicate gold invisible wire with faceted red beads and a crystal AD floral drop pendant.",
+    longDescription:
+      "Minimal Red AD Stone Invisible Chain on a fine gold-toned wire. Six faceted red beads sit between textured gold caps, with a central clear AD floral pendant and a red teardrop drop. Lobster clasp with extender for an adjustable fit.",
+    image: "/images/red-ad-stone-invisible-chain.png",
+    images: ["/images/red-ad-stone-invisible-chain.png"],
+    category: "Chain",
+    badge: "Original",
+    featured: true,
+    sizes: ["16\"", "18\"", "20\""],
+    colors: [
+      { id: "red", hex: "#c62828", label: "Red" },
+      { id: "gold", hex: "#d4af37", label: "Gold" },
+    ],
+  },
+  {
+    id: "pearl-chain",
+    name: "Pearl Chain",
+    price: 749,
+    cartPrice: 749,
+    rating: 4.9,
+    reviewCount: 33,
+    description:
+      "Classic white pearl strand with a teardrop pearl pendant, gold clasp, and heart extender charm.",
+    longDescription:
+      "Timeless Pearl Chain of closely strung lustrous white pearls with a larger teardrop pearl drop at the center. Finished with a gold lobster clasp, curb-link extender, and a small gold heart charm.",
+    image: "/images/pearl-chain.png",
+    images: ["/images/pearl-chain.png"],
+    category: "Chain",
+    badge: "Original",
+    featured: true,
+    sizes: ["16\"", "18\"", "20\""],
+    colors: [
+      { id: "pearl", hex: "#f5f0e8", label: "Pearl" },
+      { id: "gold", hex: "#d4af37", label: "Gold" },
+    ],
+  },
+  {
+    id: "invisible-chain",
+    name: "Invisible Chain",
+    price: 1299,
+    cartPrice: 1299,
+    rating: 4.9,
+    reviewCount: 14,
+    description:
+      "Red AD invisible-chain necklace with matching leaf drop earrings — gold tone set.",
+    longDescription:
+      "Complete Invisible Chain set: a fine gold wire necklace with a rectangular red AD center stone, crystal border, and red teardrop frame, plus matching gold leaf earrings with red stones and dangling beads. Lobster clasp with extender included.",
+    image: "/images/invisible-chain.png",
+    images: ["/images/invisible-chain.png"],
+    category: "Chain",
+    badge: "Original",
+    featured: true,
+    sizes: ["16\"", "18\"", "20\""],
+    colors: [
+      { id: "red", hex: "#b71c1c", label: "Red" },
+      { id: "gold", hex: "#d4af37", label: "Gold" },
+    ],
+  },
+  {
+    id: "butterfly-invisible-chain-earrings",
+    name: "Butterfly Invisible Chain with Earring",
+    price: 1199,
+    cartPrice: 1199,
+    rating: 4.9,
+    reviewCount: 12,
+    description:
+      "Gold invisible-chain necklace with AD butterfly charms and matching butterfly drop earrings.",
+    longDescription:
+      "Delicate Butterfly Invisible Chain set: a fine gold wire necklace with three clear AD butterfly charms and textured gold beads, plus matching butterfly drop earrings. Lobster clasp with extender for an adjustable fit.",
+    image: "/images/butterfly-invisible-chain-earrings.png",
+    images: ["/images/butterfly-invisible-chain-earrings.png"],
+    category: "Chain",
+    badge: "Original",
+    featured: true,
+    sizes: ["16\"", "18\"", "20\""],
+    colors: [
+      { id: "clear", hex: "#f8f8f8", label: "Clear AD" },
+      { id: "gold", hex: "#d4af37", label: "Gold" },
+    ],
+  },
+  {
+    id: "kids-beads-malai-chain",
+    name: "Kids Beads Malai / Chain",
+    price: 699,
+    cartPrice: 699,
+    rating: 4.8,
+    reviewCount: 21,
+    description:
+      "Colorful kids malai set — yellow, pink, black-gold, pearl, and rainbow bead chains with screw clasps.",
+    longDescription:
+      "Fun Kids Beads Malai / Chain pack with multiple playful strands: yellow faceted beads, pink hearts, black-and-gold beads, white pearl-style malais, and clear rainbow-center beads. Each chain has a gold screw clasp — perfect for little ones and festive styling.",
+    image: "/images/kids-beads-malai-chain.png",
+    images: ["/images/kids-beads-malai-chain.png"],
+    category: "Chain",
+    badge: "Original",
+    featured: true,
+    sizes: ["Kids"],
+    colors: [
+      { id: "multi", hex: "#f5a623", label: "Multicolor" },
+      { id: "pink", hex: "#f48fb1", label: "Pink" },
+    ],
   },
 ];
 
@@ -170,7 +358,7 @@ export const footerCare = [
 export const footerShopping = [
   { label: "New Arrivals", to: "/shop" },
   { label: "Custom Orders", to: "/customize" },
-  { label: "DIY Kits", to: "/shop" },
+  { label: "Beads & Materials", to: "/shop" },
   { label: "Care Guide", to: "/overview" },
 ] as const;
 
@@ -207,124 +395,16 @@ export interface Testimonial {
   avatar: string;
 }
 
-export const trendingProducts: Product[] = [
-  {
-    id: "aura-layer-necklace",
-    name: "The Aura Layer Set",
-    price: 245,
-    description: "Hand-knotted silk & 18k Gold",
-    image:
-      "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=600&h=750&fit=crop&q=80",
-    limitedEdition: true,
-    featured: true,
-  },
-  {
-    id: "aura-layer-bracelets",
-    name: "The Aura Layer Set",
-    price: 245,
-    description: "Hand-knotted silk & 18k Gold",
-    image:
-      "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=600&h=750&fit=crop&q=80",
-    limitedEdition: true,
-  },
-  {
-    id: "emerald-cascade",
-    name: "Emerald Cascade",
-    price: 189,
-    description: "Natural Emerald & Vermeil",
-    image:
-      "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=600&h=750&fit=crop",
-  },
-  {
-    id: "petite-pearl-choker",
-    name: "Petite Pearl Choker",
-    price: 120,
-    description: "Freshwater Pearl & 14k Gold",
-    image:
-      "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=600&h=750&fit=crop",
-  },
-];
-
-function homeProductToShopProduct(product: Product): ShopProduct {
-  const category: ShopCategory = product.id.includes("bracelet")
-    ? "Bracelets"
-    : "Necklaces";
-
-  return {
-    id: product.id,
-    name: product.name,
-    price: product.price,
-    rating: 4.5,
-    description: product.description,
-    image: product.image,
-    category,
-    badge: product.limitedEdition ? "Limited Edition" : undefined,
-    featured: product.featured,
-    cartPrice: product.price,
-    cartSubtitle: product.description,
-  };
-}
+/** Static-site only — live home uses Admin/MySQL inventory. */
+export const trendingProducts: Product[] = [];
 
 /** Products shown on the shop listing. */
 export const shopProducts: ShopProduct[] = baseShopProducts;
 
-export const premiumBeads: BeadStrand[] = [
-  {
-    id: "lapis-lazuli",
-    name: "Lapis Lazuli",
-    price: 45,
-    unit: "strand",
-    image: "/images/philosophy.jpg",
-  },
-  {
-    id: "moonstone",
-    name: "Moonstone",
-    price: 62,
-    unit: "strand",
-    image:
-      "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=500&h=500&fit=crop",
-  },
-  {
-    id: "african-turquoise",
-    name: "African Turquoise",
-    price: 38,
-    unit: "strand",
-    image:
-      "https://images.unsplash.com/photo-1611591437281-460bfac57583?w=500&h=500&fit=crop",
-  },
-  {
-    id: "rose-gold-elements",
-    name: "Rose Gold Elements",
-    price: 12,
-    unit: "pc",
-    image: "/images/journal.jpg",
-  },
-];
+export const premiumBeads: BeadStrand[] = [];
 
-function beadToShopProduct(bead: BeadStrand): ShopProduct {
-  const unitLabel = bead.unit === "pc" ? "piece" : "strand";
-
-  return {
-    id: bead.id,
-    name: bead.name,
-    price: bead.price,
-    rating: 4.6,
-    description: `Premium ${bead.name} — sold per ${bead.unit}. Ideal for custom bracelets, necklaces, and artisan projects.`,
-    longDescription: `Hand-selected ${bead.name} from our artisan palette. Each batch is chosen for color consistency and quality. Perfect for bespoke jewelry and DIY creations. Priced per ${unitLabel}.`,
-    image: bead.image,
-    category: "DIY Kits",
-    badge: "Premium Bead",
-    cartPrice: bead.price,
-    cartSubtitle: `per ${bead.unit}`,
-  };
-}
-
-/** Full catalog including home-page featured pieces and premium beads. */
-export const allCatalogProducts: ShopProduct[] = [
-  ...baseShopProducts,
-  ...trendingProducts.map(homeProductToShopProduct),
-  ...premiumBeads.map(beadToShopProduct),
-];
+/** Static prerender catalog only. Live shop loads from Admin/MySQL. */
+export const allCatalogProducts: ShopProduct[] = [...baseShopProducts];
 
 export const testimonials: Testimonial[] = [
   {
@@ -333,15 +413,15 @@ export const testimonials: Testimonial[] = [
     role: "Verified Collector",
     quote:
       "The customization process was so intuitive. I designed a bracelet set for my wedding that felt entirely my own.",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop",
+    avatar: "/images/name-bracelet.png",
   },
   {
     id: "sophia",
     name: "Sophia W.",
     role: "Jewelry Artisan",
     quote:
-      "Rose & Gilded beads are unmatched in clarity and color saturation. They elevate every piece I create.",
-    avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=80&h=80&fit=crop",
+      "Rachel Paradise beads are unmatched in clarity and color saturation. They elevate every piece I create.",
+    avatar: "/images/name-bracelet.png",
   },
   {
     id: "margot",
@@ -349,7 +429,7 @@ export const testimonials: Testimonial[] = [
     role: "Bespoke Client",
     quote:
       "A bespoke high jewelry set for our anniversary — every detail was considered, and the result was breathtaking.",
-    avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=80&h=80&fit=crop",
+    avatar: "/images/name-bracelet.png",
   },
 ];
 
@@ -374,32 +454,80 @@ export const contactFaqs = [
   },
 ] as const;
 
-export const contactGallery = [
+export const contactGalleryImages = [
   {
-    id: "pearl-bracelet",
-    image:
-      "https://images.unsplash.com/photo-1611591437281-460bfac57583?w=600&h=600&fit=crop",
-    alt: "Pearl bracelet with gold clasp",
+    id: "name-bracelet",
+    image: "/images/name-bracelet.png",
+    alt: "Personalized name bracelet",
   },
   {
-    id: "blue-beads",
-    image:
-      "https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=600&h=600&fit=crop",
-    alt: "Blue beaded bracelet",
+    id: "magnetic-bracelet",
+    image: "/images/magnetic-bracelet.png",
+    alt: "Magnetic couple bracelet",
   },
   {
-    id: "pearl-necklace",
-    image:
-      "https://images.unsplash.com/photo-1599643478518-a784e5dc4c2f?w=600&h=600&fit=crop",
-    alt: "Pearl necklace on model",
+    id: "watch-bracelet",
+    image: "/images/watch-bracelet.png",
+    alt: "Beaded watch bracelet",
   },
   {
-    id: "burgundy-set",
-    image:
-      "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=600&h=600&fit=crop",
-    alt: "Burgundy beaded jewelry set",
+    id: "tulip-bracelet",
+    image: "/images/tulip-bracelet.png",
+    alt: "Tulip charm bracelet",
+  },
+  {
+    id: "flower-bracelet",
+    image: "/images/flower-bracelet.png",
+    alt: "Flower bead bracelet",
+  },
+  {
+    id: "pearl-chain",
+    image: "/images/pearl-chain.png",
+    alt: "Pearl chain necklace",
+  },
+  {
+    id: "pink-ad-stone-pendant-chain",
+    image: "/images/pink-ad-stone-pendant-chain.png",
+    alt: "Pink AD stone pendant chain",
+  },
+  {
+    id: "invisible-chain",
+    image: "/images/invisible-chain.png",
+    alt: "Invisible chain jewelry set",
+  },
+  {
+    id: "chip-bead-bracelet",
+    image: "/images/chip-bead-bracelet.png",
+    alt: "Chip bead bracelet",
+  },
+  {
+    id: "butterfly-invisible-chain-earrings",
+    image: "/images/butterfly-invisible-chain-earrings.png",
+    alt: "Butterfly invisible chain earrings",
+  },
+  {
+    id: "hero-feature-1",
+    image: "/images/hero-feature-1.png",
+    alt: "Handmade jewelry collection flatlay",
+  },
+  {
+    id: "hero-feature-2",
+    image: "/images/hero-feature-2.png",
+    alt: "Custom bracelets and watches",
   },
 ] as const;
+
+/** @deprecated Prefer pickContactGallery() for varied images */
+export const contactGallery = contactGalleryImages.slice(0, 4);
+
+export function pickContactGallery(count = 4) {
+  const pool = [...contactGalleryImages];
+  for (let i = pool.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, count);
+}
 
 /** Instagram reels — permalinks from Instagram app → Share → Copy link */
 export type InstagramReel = {

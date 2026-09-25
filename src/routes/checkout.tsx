@@ -6,6 +6,7 @@ import { PageLayout } from "@/components/layout/PageLayout";
 import { Price } from "@/components/Price";
 import { useAuth } from "@/lib/auth";
 import { getCartItemKey, useCart } from "@/lib/cart";
+import { logClientAudit } from "@/lib/client-audit";
 import {
   computeOrderTotals,
   deliveryOptions,
@@ -21,13 +22,18 @@ import { useOrders } from "@/lib/orders-store";
 import { isStaticSite } from "@/lib/static-site";
 import { openRazorpayCheckout } from "@/lib/pay-with-razorpay";
 import { formatPrice, siteConfig } from "@/lib/site-data";
+import { buildPageHead } from "@/lib/seo";
 import { getAccountProfile } from "@/server/profile";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/checkout")({
-  head: () => ({
-    meta: [{ title: `Shipping & Payment — ${siteConfig.name}` }],
-  }),
+  head: () =>
+    buildPageHead({
+      title: `Shipping & Payment`,
+      description: `Secure checkout for ${siteConfig.brandName} orders.`,
+      path: "/checkout",
+      noIndex: true,
+    }),
   component: CheckoutPage,
 });
 
@@ -59,9 +65,15 @@ function CheckoutPage() {
   const [phone, setPhone] = useState("");
 
   useEffect(() => {
-    if (clientUser) {
-      setFullName(clientUser.name);
+    if (!clientUser) {
+      void navigate({
+        to: "/login",
+        search: { registered: false, email: "", error: "", redirect: "/checkout" },
+      });
+      return;
     }
+
+    setFullName(clientUser.name);
     if (isStaticSite) return;
 
     getAccountProfile()
@@ -74,9 +86,26 @@ function CheckoutPage() {
         setZip(profile.shippingZip);
       })
       .catch(() => {});
-  }, [clientUser]);
+  }, [clientUser, navigate]);
 
   const { subtotal, shipping, tax, total } = computeOrderTotals(items, delivery);
+
+  if (!clientUser) {
+    return (
+      <PageLayout>
+        <div className="mx-auto max-w-lg px-4 py-20 text-center">
+          <p className="text-muted-foreground">Sign in required to place an order.</p>
+          <Link
+            to="/login"
+            search={{ registered: false, email: "", error: "", redirect: "/checkout" }}
+            className="mt-6 inline-flex bg-burgundy px-6 py-3 text-xs font-bold uppercase tracking-[0.15em] text-white"
+          >
+            Sign in to Checkout
+          </Link>
+        </div>
+      </PageLayout>
+    );
+  }
 
   const handlePlaceOrder = async () => {
     setError(null);
@@ -85,6 +114,20 @@ function CheckoutPage() {
       setError("Please complete your shipping address.");
       return;
     }
+
+    logClientAudit("order.place.attempt", {
+      status: "info",
+      email: clientUser?.email,
+      userId: clientUser?.id,
+      message: "Checkout place-order started",
+      metadata: {
+        itemCount: items.length,
+        total,
+        delivery,
+        city: city.trim(),
+        zip: zip.trim(),
+      },
+    });
 
     setIsPaying(true);
     try {
@@ -98,7 +141,10 @@ function CheckoutPage() {
         productId: item.product.id,
       }));
 
-      const completeDemoOrder = async () => {
+      const completeDemoOrder = async (payment?: {
+        orderId: string;
+        paymentId: string;
+      }) => {
         saveConfirmedOrder({
           orderNumber,
           deliveryMethod: delivery,
@@ -134,6 +180,12 @@ function CheckoutPage() {
             tax,
             total,
             items: orderItems,
+            payment: payment
+              ? {
+                  razorpayOrderId: payment.orderId,
+                  razorpayPaymentId: payment.paymentId,
+                }
+              : undefined,
           });
         }
 
@@ -152,15 +204,18 @@ function CheckoutPage() {
         customer: {
           name: fullName.trim(),
           phone: phone.trim(),
+          email: clientUser?.email,
         },
-        onSuccess: async () => {
-          await completeDemoOrder();
+        onSuccess: async (payment) => {
+          await completeDemoOrder(payment);
         },
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Payment could not be completed.";
       if (message !== "Payment cancelled.") {
         setError(message);
+      } else {
+        setError(null);
       }
     } finally {
       setIsPaying(false);
@@ -192,14 +247,7 @@ function CheckoutPage() {
           <p className="mt-3 text-sm text-muted-foreground">
             Signed in as <span className="font-medium text-burgundy">{clientUser.email}</span>
           </p>
-        ) : (
-          <p className="mt-3 text-sm text-muted-foreground">
-            <Link to="/login" className="font-medium text-burgundy hover:underline">
-              Sign in
-            </Link>
-            {" "}for faster checkout and order tracking.
-          </p>
-        )}
+        ) : null}
 
         <div className="mt-10 grid gap-10 lg:grid-cols-[1fr_360px] lg:gap-12">
           <div className="space-y-6">
@@ -229,7 +277,7 @@ function CheckoutPage() {
                     type="text"
                     value={street}
                     onChange={(e) => setStreet(e.target.value)}
-                    placeholder="124 Artisan Row"
+                    placeholder="2/1013, Ezhil Nagar"
                     className="mt-2 w-full rounded-xl border border-border bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
                   />
                 </label>

@@ -33,9 +33,9 @@ const GUEST_ID_KEY = "vk_guest_id";
 
 function getCartSubtitle(product: ShopProduct, colorId: string): string {
   if (product.cartSubtitle) return product.cartSubtitle;
-  if (product.id === "ethereal-rose-bracelet") {
+  if (product.id === "name-bracelet") {
     const color = product.colors?.find((c) => c.id === colorId);
-    return `Customized: ${color?.label ?? "Rose"} Quartz, Gold 'L' Initial`;
+    return `Customized: ${color?.label ?? "Purple"} · Name beads`;
   }
   return product.description;
 }

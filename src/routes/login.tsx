@@ -4,16 +4,22 @@ import { AuthSplitLayout, loginHeroImage } from "@/components/auth/AuthSplitLayo
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { serverRedirect } from "@/lib/server-redirect";
 import { siteConfig } from "@/lib/site-data";
+import { buildPageHead } from "@/lib/seo";
 import { authenticateUser } from "@/server/users-auth.server";
 
 export const Route = createFileRoute("/login")({
-  head: () => ({
-    meta: [{ title: `Login — ${siteConfig.name}` }],
-  }),
+  head: () =>
+    buildPageHead({
+      title: `Login`,
+      description: `Sign in to your ${siteConfig.brandName} account.`,
+      path: "/login",
+      noIndex: true,
+    }),
   validateSearch: (search: Record<string, unknown>) => ({
     registered: search.registered === "1" || search.registered === true,
     email: typeof search.email === "string" ? search.email : "",
     error: typeof search.error === "string" ? search.error : "",
+    redirect: typeof search.redirect === "string" ? search.redirect : "",
   }),
   server: {
     handlers: {
@@ -22,14 +28,38 @@ export const Route = createFileRoute("/login")({
         const form = await request.formData();
         const email = String(form.get("email") ?? "").trim().toLowerCase();
         const password = String(form.get("password") ?? "");
+        const redirectRaw = String(form.get("redirect") ?? "").trim();
+        const redirectTo =
+          redirectRaw.startsWith("/") && !redirectRaw.startsWith("//")
+            ? redirectRaw
+            : "/account";
 
         try {
-          await authenticateUser({ email, password });
-          return serverRedirect(`${url.origin}/account`);
+          const user = await authenticateUser({ email, password });
+          const { writeAuditLog } = await import("@/server/audit-log.server");
+          await writeAuditLog({
+            action: "auth.login.success",
+            status: "success",
+            userId: user.id,
+            email,
+            request,
+            message: "Email/password sign-in",
+            metadata: { redirectTo },
+          });
+          return serverRedirect(`${url.origin}${redirectTo}`);
         } catch (err) {
           const message =
             err instanceof Error ? err.message : "Could not sign in. Please try again.";
+          const { writeAuditLog } = await import("@/server/audit-log.server");
+          await writeAuditLog({
+            action: "auth.login.failure",
+            status: "failure",
+            email,
+            request,
+            message,
+          });
           const params = new URLSearchParams({ error: message, email });
+          if (redirectTo !== "/account") params.set("redirect", redirectTo);
           return serverRedirect(`${url.origin}/login?${params.toString()}`);
         }
       },
@@ -39,22 +69,33 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const { registered, email, error } = Route.useSearch();
+  const { registered, email, error, redirect } = Route.useSearch();
+  const afterLogin =
+    redirect.startsWith("/") && !redirect.startsWith("//") ? redirect : "/account";
 
   return (
     <AuthSplitLayout imagePosition="left" imageSrc={loginHeroImage}>
       <h1 className="font-serif text-3xl text-burgundy md:text-4xl">Welcome Back</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Please enter your details to sign in
+        Sign in with email, or continue with Google
       </p>
 
       {registered && (
         <p className="mt-4 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800">
-          Account created successfully. Please sign in with your email and password.
+          Account created in Cognito. Please sign in with your email and password.
+        </p>
+      )}
+
+      {redirect === "/checkout" && (
+        <p className="mt-4 rounded-lg bg-blush-card px-4 py-3 text-sm text-burgundy">
+          Please sign in to continue to checkout.
         </p>
       )}
 
       <form method="post" action="/login" className="mt-8 space-y-5">
+        {afterLogin !== "/account" ? (
+          <input type="hidden" name="redirect" value={afterLogin} />
+        ) : null}
         <label className="block">
           <span className="text-sm font-medium text-foreground">Email Address</span>
           <input
@@ -142,7 +183,7 @@ function LoginPage() {
         <div className="h-px flex-1 bg-border" />
       </div>
 
-      <GoogleSignInButton callbackUrl="/account" />
+      <GoogleSignInButton callbackUrl={afterLogin} />
 
       <p className="mt-8 text-center text-sm text-muted-foreground">
         Don&apos;t have an account?{" "}

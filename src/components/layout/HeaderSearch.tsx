@@ -3,7 +3,7 @@ import { Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useInventory } from "@/lib/inventory-store";
-import { formatPrice, allCatalogProducts } from "@/lib/site-data";
+import { formatPrice } from "@/lib/site-data";
 import { searchShopProducts } from "@/lib/shop-search";
 import { cn } from "@/lib/utils";
 
@@ -14,16 +14,9 @@ export function HeaderSearch({ className }: { className?: string }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const catalog = useMemo(() => {
-    const map = new Map<string, typeof allCatalogProducts[number]>();
-    for (const product of allCatalogProducts) map.set(product.id, product);
-    for (const product of products) map.set(product.id, product);
-    return Array.from(map.values());
-  }, [products]);
-
   const results = useMemo(
-    () => searchShopProducts(catalog, query, 6),
-    [catalog, query],
+    () => searchShopProducts(products, query, 6),
+    [products, query],
   );
 
   useEffect(() => {

@@ -1,10 +1,7 @@
-import Auth0 from "@auth/core/providers/auth0";
+import Google from "@auth/core/providers/google";
 import type { JWT } from "@auth/core/jwt";
 import type { Profile } from "@auth/core/types";
 import type { StartAuthJSConfig } from "start-authjs";
-
-import { GOOGLE_OAUTH_CONNECTION } from "@/lib/google-oauth";
-import { findOrCreateOAuthUser } from "@/server/users";
 
 function profileField(profile: Profile | undefined, key: string) {
   if (!profile || typeof profile !== "object") return undefined;
@@ -24,6 +21,7 @@ async function persistOAuthUserFromToken(token: JWT) {
         ? token.dbUserId
         : email;
 
+  const { findOrCreateOAuthUser } = await import("@/server/users.server");
   return await findOrCreateOAuthUser({ sub, name, email });
 }
 
@@ -42,44 +40,31 @@ function ensureAuthEnv() {
 
 ensureAuthEnv();
 
-function auth0Issuer() {
-  const issuer = process.env.AUTH_AUTH0_ISSUER ?? process.env.AUTH0_ISSUER;
-  if (issuer) return issuer;
-  const domain = process.env.AUTH0_DOMAIN;
-  if (!domain) return undefined;
-  return domain.startsWith("https://") ? domain : `https://${domain}`;
+function googleClientId() {
+  return process.env.AUTH_GOOGLE_ID ?? process.env.GOOGLE_CLIENT_ID;
 }
 
-function auth0ClientId() {
-  return process.env.AUTH_AUTH0_ID ?? process.env.AUTH0_CLIENT_ID;
-}
-
-function auth0ClientSecret() {
-  return process.env.AUTH_AUTH0_SECRET ?? process.env.AUTH0_CLIENT_SECRET;
+function googleClientSecret() {
+  return process.env.AUTH_GOOGLE_SECRET ?? process.env.GOOGLE_CLIENT_SECRET;
 }
 
 function authSecret() {
   return process.env.AUTH_SECRET ?? process.env.AUTH0_SECRET;
 }
 
-/** Auth0 social connection name for Google (Dashboard → Authentication → Social). */
-export function getGoogleConnectionName() {
-  return process.env.AUTH0_GOOGLE_CONNECTION ?? GOOGLE_OAUTH_CONNECTION;
-}
-
-/** Auth.js config for Auth0 OAuth (TanStack Start). */
+/** Auth.js — Google OAuth only (no Cognito Hosted UI). */
 export const authConfig: StartAuthJSConfig = {
   secret: authSecret(),
   trustHost: true,
   providers: [
-    Auth0({
-      clientId: auth0ClientId(),
-      clientSecret: auth0ClientSecret(),
-      issuer: auth0Issuer(),
+    Google({
+      clientId: googleClientId(),
+      clientSecret: googleClientSecret(),
       authorization: {
         params: {
-          scope: "openid profile email",
-          connection: getGoogleConnectionName(),
+          prompt: "select_account",
+          access_type: "online",
+          response_type: "code",
         },
       },
     }),
@@ -104,8 +89,15 @@ export const authConfig: StartAuthJSConfig = {
       if (!token.picture && user?.image) token.picture = user.image;
 
       if (account && token.email && !token.dbUserId) {
-        const dbUser = await persistOAuthUserFromToken(token);
-        if (dbUser) token.dbUserId = dbUser.id;
+        try {
+          const dbUser = await persistOAuthUserFromToken(token);
+          if (dbUser) token.dbUserId = dbUser.id;
+        } catch (err) {
+          console.error("[auth] Could not persist OAuth user to MySQL:", err);
+          if (!token.dbUserId && token.sub) {
+            token.dbUserId = `user_oauth_${String(token.sub).replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+          }
+        }
       }
 
       return token;
@@ -115,23 +107,126 @@ export const authConfig: StartAuthJSConfig = {
         if (token.email) session.user.email = token.email as string;
         if (token.name) session.user.name = token.name as string;
         if (token.dbUserId) session.user.id = token.dbUserId as string;
+        else if (token.sub) session.user.id = token.sub as string;
         if (token.picture) session.user.image = token.picture as string;
       }
       return session;
     },
   },
   events: {
-    async signIn({ user, profile }) {
+    async signIn({ user, account, profile, isNewUser }) {
       const email = user.email ?? profileField(profile, "email");
       if (!email) return;
 
       const name = user.name ?? profileField(profile, "name");
       const sub = user.id ?? profileField(profile, "sub") ?? email;
-      await findOrCreateOAuthUser({ sub, name, email });
+      const provider = account?.provider ?? "google";
+      const providerAccountId = account?.providerAccountId ?? sub;
+
+      let mysqlMirrored = false;
+      let mysqlUserId: string | null = null;
+      try {
+        const { findOrCreateOAuthUser } = await import("@/server/users.server");
+        const dbUser = await findOrCreateOAuthUser({ sub, name, email });
+        mysqlMirrored = Boolean(dbUser);
+        mysqlUserId = dbUser?.id ?? null;
+      } catch (err) {
+        console.error("[auth] MySQL user mirror failed:", err);
+      }
+
+      let cognitoMirror: { created: boolean } | null = null;
+      let cognitoError: string | null = null;
+      try {
+        const { ensureCognitoUserFromOAuth } = await import(
+          "@/server/cognito-auth.server"
+        );
+        cognitoMirror = await ensureCognitoUserFromOAuth({ email, name, sub });
+      } catch (err) {
+        cognitoError = err instanceof Error ? err.message : "Cognito mirror failed";
+      }
+
+      try {
+        const { writeAuditLog } = await import("@/server/audit-log.server");
+        await writeAuditLog({
+          action: "auth.oauth.signin",
+          status: cognitoError && !mysqlMirrored ? "failure" : "success",
+          userId: mysqlUserId ?? sub,
+          email,
+          message: `${provider} OAuth sign-in completed`,
+          metadata: {
+            provider,
+            providerAccountId,
+            name,
+            isNewUser: Boolean(isNewUser),
+            mysqlMirrored,
+            mysqlUserId,
+            cognitoMirrored: Boolean(cognitoMirror),
+            cognitoCreated: cognitoMirror?.created ?? null,
+            cognitoError,
+            picture: user.image ?? profileField(profile, "picture") ?? null,
+          },
+        });
+
+        await writeAuditLog({
+          action: "auth.google.signin",
+          status: "success",
+          userId: mysqlUserId ?? sub,
+          email,
+          message: "Google OAuth sign-in",
+          metadata: {
+            provider: "google",
+            providerAccountId,
+            name,
+            isNewUser: Boolean(isNewUser),
+            mysqlUserId,
+            cognitoCreated: cognitoMirror?.created ?? null,
+          },
+        });
+      } catch {
+        // ignore audit failures
+      }
+    },
+    async signOut(message) {
+      try {
+        const { writeAuditLog } = await import("@/server/audit-log.server");
+        const token = "token" in message ? message.token : null;
+        const session = "session" in message ? message.session : null;
+        const email =
+          (token && typeof token.email === "string" && token.email) ||
+          (session &&
+            typeof session === "object" &&
+            session &&
+            "user" in session &&
+            session.user &&
+            typeof (session.user as { email?: string }).email === "string" &&
+            (session.user as { email: string }).email) ||
+          null;
+        const userId =
+          (token && typeof token.dbUserId === "string" && token.dbUserId) ||
+          (token && typeof token.sub === "string" && token.sub) ||
+          null;
+        await writeAuditLog({
+          action: "auth.oauth.signout",
+          status: "success",
+          email,
+          userId,
+          message: "OAuth session signed out",
+          metadata: { provider: "google" },
+        });
+      } catch {
+        // ignore
+      }
     },
   },
 };
 
-export function isAuth0Configured() {
-  return Boolean(authSecret() && auth0ClientId() && auth0ClientSecret() && auth0Issuer());
+export function isGoogleOAuthConfigured() {
+  return Boolean(authSecret() && googleClientId() && googleClientSecret());
 }
+
+export function isOAuthConfigured() {
+  return isGoogleOAuthConfigured();
+}
+
+/** @deprecated Use isOAuthConfigured — kept for existing imports */
+export const isAuth0Configured = isOAuthConfigured;

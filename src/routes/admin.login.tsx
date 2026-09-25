@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Eye, EyeOff, Shield } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 
 import { useAuth } from "@/lib/auth";
@@ -15,7 +15,7 @@ export const Route = createFileRoute("/admin/login")({
 function AdminLoginPage() {
   const navigate = useNavigate();
   const { loginAdmin, isAdminAuthenticated } = useAuth();
-  const [email, setEmail] = useState("admin@vkstudio.com");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,9 +44,11 @@ function AdminLoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-blush-section px-4 py-8 sm:py-12">
       <div className="w-full max-w-md rounded-2xl border border-border bg-white p-6 shadow-sm sm:p-8">
         <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-full bg-burgundy/10">
-            <Shield className="size-5 text-burgundy" />
-          </div>
+          <img
+            src={siteConfig.logo}
+            alt={siteConfig.brandName}
+            className="size-14 object-contain"
+          />
           <div>
             <h1 className="font-serif text-2xl text-burgundy">Admin Portal</h1>
             <p className="text-sm text-muted-foreground">{siteConfig.brandName} studio</p>
@@ -60,6 +62,7 @@ function AdminLoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              autoComplete="username"
               required
               className="mt-2 w-full rounded-lg border border-border px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
             />
@@ -72,6 +75,7 @@ function AdminLoginPage() {
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
                 required
                 className="w-full rounded-lg border border-border px-4 py-3 pr-11 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
               />
@@ -79,6 +83,7 @@ function AdminLoginPage() {
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
               </button>
@@ -99,9 +104,13 @@ function AdminLoginPage() {
         </form>
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
-          <Link to="/login" className="text-burgundy hover:underline">Client login</Link>
+          <Link to="/login" className="text-burgundy hover:underline">
+            Client login
+          </Link>
           <span className="mx-2">·</span>
-          <Link to="/" className="text-burgundy hover:underline">Store</Link>
+          <Link to="/" className="text-burgundy hover:underline">
+            Store
+          </Link>
         </p>
       </div>
     </div>

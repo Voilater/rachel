@@ -1,17 +1,38 @@
 import { Link } from "@tanstack/react-router";
 import { Globe, Instagram, Mail, Share2 } from "lucide-react";
+import { useEffect, useState } from "react";
 
+import { DEFAULT_INSTAGRAM_SETTINGS } from "@/lib/instagram-settings";
 import {
   footerCare,
   footerDiscover,
   siteConfig,
 } from "@/lib/site-data";
+import { isStaticSite } from "@/lib/static-site";
+import { getInstagramSettings } from "@/server/instagram-settings";
 
 export function Footer() {
   const year = new Date().getFullYear();
+  const [instagramUrl, setInstagramUrl] = useState(siteConfig.instagram.profileUrl);
+
+  useEffect(() => {
+    if (isStaticSite) {
+      setInstagramUrl(DEFAULT_INSTAGRAM_SETTINGS.profileUrl);
+      return;
+    }
+    let cancelled = false;
+    void getInstagramSettings()
+      .then((settings) => {
+        if (!cancelled) setInstagramUrl(settings.profileUrl);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
-    <footer className="bg-plum text-white">
+    <footer className="relative z-10 mt-auto shrink-0 bg-plum text-white">
       <div className="mx-auto max-w-7xl px-4 py-14 md:px-8 md:py-20">
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
           <div>
@@ -20,7 +41,7 @@ export function Footer() {
             </p>
             <div className="mt-6 flex gap-4">
               <a
-                href={siteConfig.instagram.profileUrl}
+                href={instagramUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Instagram"

@@ -3,9 +3,8 @@ import { createServerFn } from "@tanstack/react-start";
 import type { CartDto, StoredCartItem } from "@/server/cart-types";
 import { execute, queryOne } from "@/server/db";
 import { mapProductRow, type ProductRow } from "@/server/products";
-import { getUserProfileByEmail } from "@/server/users";
+import { getUserProfileByEmail } from "@/server/users.server";
 import type { ShopProduct } from "@/lib/site-data";
-import { getShopProduct } from "@/lib/site-data";
 
 interface CartRow {
   owner_key: string;
@@ -49,7 +48,7 @@ async function saveCart(ownerKey: string, items: StoredCartItem[]) {
 async function hydrateProduct(productId: string): Promise<ShopProduct | null> {
   const row = await queryOne<ProductRow>("SELECT * FROM products WHERE id = ?", [productId]);
   if (row) return mapProductRow(row);
-  return getShopProduct(productId) ?? null;
+  return null;
 }
 
 export const fetchCart = createServerFn({ method: "GET" })

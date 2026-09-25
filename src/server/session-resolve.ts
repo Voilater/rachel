@@ -4,7 +4,7 @@ import { getSession } from "start-authjs";
 import { authConfig, isAuth0Configured } from "@/lib/auth0-config";
 import { readCredentialSession } from "@/server/credential-session";
 import { queryOne } from "@/server/db";
-import { findOrCreateOAuthUser } from "@/server/users";
+import { findOrCreateOAuthUser } from "@/server/users.server";
 
 export interface SessionUser {
   id: string;
@@ -14,23 +14,7 @@ export interface SessionUser {
   authMethod: "credentials" | "oauth";
 }
 
-export async function resolveSessionUser(): Promise<SessionUser | null> {
-  const credential = await readCredentialSession();
-  if (credential) {
-    const row = await queryOne<{ id: string; email: string; name: string }>(
-      "SELECT id, name, email FROM users WHERE id = ?",
-      [credential.id],
-    );
-    if (row) {
-      return {
-        id: row.id,
-        email: row.email,
-        name: row.name,
-        authMethod: "credentials",
-      };
-    }
-  }
-
+async function resolveOAuthSessionUser(): Promise<SessionUser | null> {
   if (!isAuth0Configured()) return null;
 
   const request = getRequest();
@@ -88,4 +72,30 @@ export async function resolveSessionUser(): Promise<SessionUser | null> {
     image,
     authMethod: "oauth",
   };
+}
+
+async function resolveCredentialSessionUser(): Promise<SessionUser | null> {
+  const credential = await readCredentialSession();
+  if (!credential) return null;
+
+  const row = await queryOne<{ id: string; email: string; name: string }>(
+    "SELECT id, name, email FROM users WHERE id = ?",
+    [credential.id],
+  );
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    authMethod: "credentials",
+  };
+}
+
+export async function resolveSessionUser(): Promise<SessionUser | null> {
+  // Prefer OAuth when present so Google sign-in is not shadowed by a stale
+  // email/password cookie (which made My orders empty while Profile looked signed in).
+  const oauth = await resolveOAuthSessionUser();
+  if (oauth) return oauth;
+  return resolveCredentialSessionUser();
 }

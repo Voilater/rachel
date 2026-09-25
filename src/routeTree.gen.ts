@@ -17,13 +17,18 @@ import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as CustomizeRouteImport } from './routes/customize'
 import { Route as LifestyleRouteImport } from './routes/lifestyle'
+import { Route as LlmsFullDottxtRouteImport } from './routes/llms-full[.]txt'
+import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as LocationRouteImport } from './routes/location'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as OverviewRouteImport } from './routes/overview'
 import { Route as PhilosophyRouteImport } from './routes/philosophy'
 import { Route as ShopRouteImport } from './routes/shop'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminAuditRouteImport } from './routes/admin.audit'
+import { Route as AdminInstagramRouteImport } from './routes/admin.instagram'
 import { Route as AdminInventoryRouteImport } from './routes/admin.inventory'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as AdminOrdersRouteImport } from './routes/admin.orders'
@@ -77,6 +82,16 @@ const LifestyleRoute = LifestyleRouteImport.update({
   path: '/lifestyle',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LlmsFullDottxtRoute = LlmsFullDottxtRouteImport.update({
+  id: '/llms-full.txt',
+  path: '/llms-full.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
+  id: '/llms.txt',
+  path: '/llms.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LocationRoute = LocationRouteImport.update({
   id: '/location',
   path: '/location',
@@ -107,9 +122,24 @@ const SignupRoute = SignupRouteImport.update({
   path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAuditRoute = AdminAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminInstagramRoute = AdminInstagramRouteImport.update({
+  id: '/instagram',
+  path: '/instagram',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminInventoryRoute = AdminInventoryRouteImport.update({
@@ -182,12 +212,17 @@ export interface FileRoutesByFullPath {
   '/contact': typeof ContactRoute
   '/customize': typeof CustomizeRoute
   '/lifestyle': typeof LifestyleRoute
+  '/llms-full.txt': typeof LlmsFullDottxtRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/location': typeof LocationRoute
   '/login': typeof LoginRoute
   '/overview': typeof OverviewRoute
   '/philosophy': typeof PhilosophyRoute
   '/shop': typeof ShopRouteWithChildren
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin/audit': typeof AdminAuditRoute
+  '/admin/instagram': typeof AdminInstagramRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/orders': typeof AdminOrdersRoute
@@ -210,11 +245,16 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/customize': typeof CustomizeRoute
   '/lifestyle': typeof LifestyleRoute
+  '/llms-full.txt': typeof LlmsFullDottxtRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/location': typeof LocationRoute
   '/login': typeof LoginRoute
   '/overview': typeof OverviewRoute
   '/philosophy': typeof PhilosophyRoute
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin/audit': typeof AdminAuditRoute
+  '/admin/instagram': typeof AdminInstagramRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/orders': typeof AdminOrdersRoute
@@ -239,12 +279,17 @@ export interface FileRoutesById {
   '/contact': typeof ContactRoute
   '/customize': typeof CustomizeRoute
   '/lifestyle': typeof LifestyleRoute
+  '/llms-full.txt': typeof LlmsFullDottxtRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/location': typeof LocationRoute
   '/login': typeof LoginRoute
   '/overview': typeof OverviewRoute
   '/philosophy': typeof PhilosophyRoute
   '/shop': typeof ShopRouteWithChildren
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin/audit': typeof AdminAuditRoute
+  '/admin/instagram': typeof AdminInstagramRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/orders': typeof AdminOrdersRoute
@@ -270,12 +315,17 @@ export interface FileRouteTypes {
     | '/contact'
     | '/customize'
     | '/lifestyle'
+    | '/llms-full.txt'
+    | '/llms.txt'
     | '/location'
     | '/login'
     | '/overview'
     | '/philosophy'
     | '/shop'
     | '/signup'
+    | '/sitemap.xml'
+    | '/admin/audit'
+    | '/admin/instagram'
     | '/admin/inventory'
     | '/admin/login'
     | '/admin/orders'
@@ -298,11 +348,16 @@ export interface FileRouteTypes {
     | '/contact'
     | '/customize'
     | '/lifestyle'
+    | '/llms-full.txt'
+    | '/llms.txt'
     | '/location'
     | '/login'
     | '/overview'
     | '/philosophy'
     | '/signup'
+    | '/sitemap.xml'
+    | '/admin/audit'
+    | '/admin/instagram'
     | '/admin/inventory'
     | '/admin/login'
     | '/admin/orders'
@@ -326,12 +381,17 @@ export interface FileRouteTypes {
     | '/contact'
     | '/customize'
     | '/lifestyle'
+    | '/llms-full.txt'
+    | '/llms.txt'
     | '/location'
     | '/login'
     | '/overview'
     | '/philosophy'
     | '/shop'
     | '/signup'
+    | '/sitemap.xml'
+    | '/admin/audit'
+    | '/admin/instagram'
     | '/admin/inventory'
     | '/admin/login'
     | '/admin/orders'
@@ -356,12 +416,15 @@ export interface RootRouteChildren {
   ContactRoute: typeof ContactRoute
   CustomizeRoute: typeof CustomizeRoute
   LifestyleRoute: typeof LifestyleRoute
+  LlmsFullDottxtRoute: typeof LlmsFullDottxtRoute
+  LlmsDottxtRoute: typeof LlmsDottxtRoute
   LocationRoute: typeof LocationRoute
   LoginRoute: typeof LoginRoute
   OverviewRoute: typeof OverviewRoute
   PhilosophyRoute: typeof PhilosophyRoute
   ShopRoute: typeof ShopRouteWithChildren
   SignupRoute: typeof SignupRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   AuthGoogleRoute: typeof AuthGoogleRoute
   AuthLoginRoute: typeof AuthLoginRoute
   AuthLogoutRoute: typeof AuthLogoutRoute
@@ -427,6 +490,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LifestyleRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/llms-full.txt': {
+      id: '/llms-full.txt'
+      path: '/llms-full.txt'
+      fullPath: '/llms-full.txt'
+      preLoaderRoute: typeof LlmsFullDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/llms.txt': {
+      id: '/llms.txt'
+      path: '/llms.txt'
+      fullPath: '/llms.txt'
+      preLoaderRoute: typeof LlmsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/location': {
       id: '/location'
       path: '/location'
@@ -469,11 +546,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/': {
       id: '/admin/'
       path: '/'
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/audit': {
+      id: '/admin/audit'
+      path: '/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AdminAuditRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/instagram': {
+      id: '/admin/instagram'
+      path: '/instagram'
+      fullPath: '/admin/instagram'
+      preLoaderRoute: typeof AdminInstagramRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/inventory': {
@@ -564,6 +662,8 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminRouteChildren {
+  AdminAuditRoute: typeof AdminAuditRoute
+  AdminInstagramRoute: typeof AdminInstagramRoute
   AdminInventoryRoute: typeof AdminInventoryRoute
   AdminLoginRoute: typeof AdminLoginRoute
   AdminOrdersRoute: typeof AdminOrdersRoute
@@ -571,6 +671,8 @@ interface AdminRouteChildren {
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminAuditRoute: AdminAuditRoute,
+  AdminInstagramRoute: AdminInstagramRoute,
   AdminInventoryRoute: AdminInventoryRoute,
   AdminLoginRoute: AdminLoginRoute,
   AdminOrdersRoute: AdminOrdersRoute,
@@ -624,12 +726,15 @@ const rootRouteChildren: RootRouteChildren = {
   ContactRoute: ContactRoute,
   CustomizeRoute: CustomizeRoute,
   LifestyleRoute: LifestyleRoute,
+  LlmsFullDottxtRoute: LlmsFullDottxtRoute,
+  LlmsDottxtRoute: LlmsDottxtRoute,
   LocationRoute: LocationRoute,
   LoginRoute: LoginRoute,
   OverviewRoute: OverviewRoute,
   PhilosophyRoute: PhilosophyRoute,
   ShopRoute: ShopRouteWithChildren,
   SignupRoute: SignupRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   AuthGoogleRoute: AuthGoogleRoute,
   AuthLoginRoute: AuthLoginRoute,
   AuthLogoutRoute: AuthLogoutRoute,

@@ -6,3 +6,5 @@ dist
 .tanstack/**
 *.local
 .DS_Store
+.env
+.env.*.local

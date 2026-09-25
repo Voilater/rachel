@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 
-import type { ShopCategory } from "@/lib/site-data";
+import type { ShopCategory } from "@/lib/shop-categories";
+import { normalizeShopCategory } from "@/lib/shop-categories";
 import { execute, query, queryOne } from "@/server/db";
 
 export interface ProductRow {
@@ -59,7 +60,7 @@ export function mapProductRow(row: ProductRow): DbProduct {
     id: row.id,
     name: row.name,
     sku: row.sku,
-    category: row.category as ShopCategory,
+    category: normalizeShopCategory(row.category),
     price: Number(row.price),
     stock: row.stock,
     description: row.description,
@@ -88,7 +89,7 @@ type ProductInput = {
   id?: string;
   name: string;
   sku: string;
-  category: ShopCategory;
+  category: string;
   price: number;
   stock: number;
   description: string;
@@ -127,7 +128,7 @@ export const createProduct = createServerFn({ method: "POST" })
         id,
         data.name,
         data.sku,
-        data.category,
+        normalizeShopCategory(data.category),
         data.price,
         data.stock,
         data.description,
@@ -162,7 +163,9 @@ export const updateProductById = createServerFn({ method: "POST" })
       [
         patch.name ?? existing.name,
         patch.sku ?? existing.sku,
-        patch.category ?? existing.category,
+        patch.category != null
+          ? normalizeShopCategory(patch.category)
+          : existing.category,
         patch.price ?? existing.price,
         patch.stock ?? existing.stock,
         patch.description ?? existing.description,

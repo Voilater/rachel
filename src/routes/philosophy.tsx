@@ -2,9 +2,16 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { PageLayout } from "@/components/layout/PageLayout";
 import { siteConfig } from "@/lib/site-data";
+import { aeoAnswers, buildPageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/philosophy")({
-  head: () => ({ meta: [{ title: `Philosophy — ${siteConfig.name}` }] }),
+  head: () =>
+    buildPageHead({
+      title: `Our Philosophy`,
+      description: aeoAnswers.whatWeSell,
+      path: "/philosophy",
+      keywords: ["Rachel Paradise story", "handmade jewelry philosophy", "ethical jewelry"],
+    }),
   component: PhilosophyPage,
 });
 

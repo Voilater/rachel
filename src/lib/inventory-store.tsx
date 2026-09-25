@@ -11,7 +11,6 @@ import {
 import { staticInventoryItems } from "@/lib/static-catalog";
 import { isStaticSite } from "@/lib/static-site";
 import type { ShopCategory, ShopProduct } from "@/lib/site-data";
-import { getShopProduct } from "@/lib/site-data";
 import {
   adjustProductStock,
   createProduct,
@@ -68,9 +67,12 @@ export function toInventoryItem(product: DbProduct): InventoryItem {
 }
 
 export function InventoryProvider({ children }: { children: ReactNode }) {
-  const [products, setProducts] = useState<InventoryItem[]>([]);
-  const [ready, setReady] = useState(false);
-  const [loading, setLoading] = useState(false);
+  // Live ecommerce: products come from Admin/MySQL only — never static dummies.
+  const [products, setProducts] = useState<InventoryItem[]>(
+    isStaticSite ? staticInventoryItems : [],
+  );
+  const [ready, setReady] = useState(isStaticSite);
+  const [loading, setLoading] = useState(!isStaticSite);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -90,12 +92,13 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         new Promise<Awaited<ReturnType<typeof listProducts>>>((_, reject) => {
           setTimeout(
             () => reject(new Error("Timed out loading products. Is MySQL running?")),
-            20000,
+            4000,
           );
         }),
       ]);
       setProducts(rows.map(toInventoryItem));
     } catch (err) {
+      setProducts([]);
       setError(err instanceof Error ? err.message : "Failed to load products.");
     } finally {
       setLoading(false);
@@ -107,20 +110,24 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    if (isStaticSite) return;
+    const onFocus = () => {
+      void refresh();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") onFocus();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [refresh]);
+
   const getProduct = useCallback(
-    (id: string) => {
-      const fromDb = products.find((p) => p.id === id);
-      if (fromDb) return fromDb;
-
-      const catalog = getShopProduct(id);
-      if (!catalog) return undefined;
-
-      return {
-        ...catalog,
-        stock: catalog.stock ?? 12,
-        sku: catalog.sku ?? `VK-${id.slice(0, 8).toUpperCase()}`,
-      };
-    },
+    (id: string) => products.find((p) => p.id === id),
     [products],
   );
 
@@ -233,9 +240,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     ],
   );
 
-  return (
-    <InventoryContext.Provider value={value}>{children}</InventoryContext.Provider>
-  );
+  return <InventoryContext.Provider value={value}>{children}</InventoryContext.Provider>;
 }
 
 export function useInventory() {

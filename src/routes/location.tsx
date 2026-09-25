@@ -18,19 +18,22 @@ function LocationPage() {
           <MapPin className="mt-1 size-5 shrink-0 text-burgundy" />
           <div>
             <p className="font-medium text-foreground">{siteConfig.location}</p>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              {siteConfig.studio.address}
+            </p>
             <p className="mt-4 text-muted-foreground leading-relaxed">
-              Experience our collections in person at our Mumbai atelier. Private appointments
+              Experience our collections in person at our Madurai studio. Private appointments
               are available for custom consultations and bespoke jewelry design.
             </p>
             <p className="mt-4 text-sm text-muted-foreground">
-              Open Tuesday – Saturday, 10:00 AM – 7:00 PM
+              {siteConfig.studio.hours}
             </p>
           </div>
         </div>
         <div className="mt-12 aspect-[16/9] overflow-hidden rounded-2xl bg-blush-section">
           <img
             src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&h=600&fit=crop"
-            alt="VK atelier interior"
+            alt="Rachel Paradise studio"
             className="size-full object-cover"
           />
         </div>

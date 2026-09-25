@@ -2,9 +2,23 @@ import { Link } from "@tanstack/react-router";
 import { Heart, Star } from "lucide-react";
 
 import { Price } from "@/components/Price";
+import { useCart } from "@/lib/cart";
 import type { ShopProduct } from "@/lib/site-data";
+import { cn } from "@/lib/utils";
 
 export function ShopProductCard({ product }: { product: ShopProduct }) {
+  const { addItem, openCart } = useCart();
+
+  const handleAddToBag = () => {
+    addItem(product, {
+      size: "default",
+      colorId: "default",
+      subtitle: product.description,
+      linePrice: product.price,
+    });
+    openCart();
+  };
+
   return (
     <article className="group flex h-full flex-col">
       <Link to="/shop/$productId" params={{ productId: product.id }} className="block shrink-0">
@@ -46,6 +60,18 @@ export function ShopProductCard({ product }: { product: ShopProduct }) {
         <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
           {product.description}
         </p>
+        <button
+          type="button"
+          onClick={handleAddToBag}
+          className={cn(
+            "mt-4 flex h-11 w-full shrink-0 items-center justify-center rounded-lg text-xs font-bold uppercase tracking-[0.15em] transition-opacity hover:opacity-90",
+            product.featured
+              ? "bg-plum text-white"
+              : "box-border border-2 border-burgundy bg-transparent text-burgundy",
+          )}
+        >
+          Add to Bag
+        </button>
       </div>
     </article>
   );

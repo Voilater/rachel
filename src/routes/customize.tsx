@@ -3,11 +3,21 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { CustomizeForm } from "@/components/CustomizeForm";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { siteConfig } from "@/lib/site-data";
+import { aeoAnswers, buildPageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/customize")({
-  head: () => ({
-    meta: [{ title: `Customize — ${siteConfig.name}` }],
-  }),
+  head: () =>
+    buildPageHead({
+      title: `Customize Your Jewelry`,
+      description: aeoAnswers.customization,
+      path: "/customize",
+      keywords: [
+        "custom bracelet",
+        "design your jewelry",
+        "personalized beads",
+        "Rachel Paradise customize",
+      ],
+    }),
   component: CustomizePage,
 });
 
