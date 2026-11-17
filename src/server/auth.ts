@@ -35,9 +35,24 @@ export const verifyAdminLogin = createServerFn({ method: "POST" })
       message: "Admin signed in",
     });
 
+    const { createAdminSession } = await import(
+      "@/server/admin-session.server"
+    );
+    await createAdminSession(expected.email);
+
     return {
       email: expected.email,
       name: "Studio Admin",
       role: "admin" as const,
     };
   });
+
+export const logoutAdminSession = createServerFn({ method: "POST" }).handler(
+  async () => {
+    const { clearAdminSession } = await import(
+      "@/server/admin-session.server"
+    );
+    clearAdminSession();
+    return { ok: true };
+  },
+);

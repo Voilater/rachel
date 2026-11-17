@@ -32,11 +32,12 @@
     "lucide-react": "^0.575.0",
     "mysql2": "^3.23.2",
     "nodemailer": "^8.0.11",
-    "razorpay": "^2.9.8",
+    "qrcode.react": "^4.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "start-authjs": "^1.0.2",
-    "tailwind-merge": "^3.5.0"
+    "tailwind-merge": "^3.5.0",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",

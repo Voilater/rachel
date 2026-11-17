@@ -11,6 +11,7 @@ import {
 
 import { hydrateCartItemsLocal } from "@/lib/hydrate-cart-local";
 import { isStaticSite } from "@/lib/static-site";
+import { isTestOnlyProduct } from "@/lib/shop-filters";
 import type { StoredCartItem } from "@/server/cart-types";
 import {
   clearCartItems,
@@ -140,9 +141,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const applyHydratedItems = useCallback(
     (hydrated: CartItem[]) => {
-      setItems(hydrated);
-      itemsRef.current = hydrated;
-      writeLocalCart(hydrated.map(toStored));
+      const availableItems = hydrated.filter(
+        (item) => !isTestOnlyProduct(item.product),
+      );
+      setItems(availableItems);
+      itemsRef.current = availableItems;
+      writeLocalCart(availableItems.map(toStored));
+      return availableItems;
     },
     [],
   );
@@ -180,8 +185,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
         const hydrated = await hydrateCartProducts({ data: { items: merged } });
         if (!cancelled) {
-          applyHydratedItems(hydrated as CartItem[]);
-          persistCart(hydrated as CartItem[]);
+          const availableItems = applyHydratedItems(hydrated as CartItem[]);
+          persistCart(availableItems);
         }
       } catch {
         const local = readLocalCart();

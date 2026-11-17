@@ -11,7 +11,9 @@ import {
   useOrders,
 } from "@/lib/orders-store";
 import { formatIntention } from "@/lib/order-confirmation";
+import type { PaymentReceiptOcrResult } from "@/lib/payment-receipt-ocr";
 import { formatPrice, siteConfig } from "@/lib/site-data";
+import { getUpiPaymentReport } from "@/server/payment";
 
 export const Route = createFileRoute("/admin/orders")({
   head: () => ({
@@ -29,11 +31,22 @@ const STATUS_OPTIONS: OrderStatus[] = [
 ];
 
 function AdminOrdersPage() {
-  const { orders, loading, error, refresh, updateOrderStatus } = useOrders();
+  const {
+    orders,
+    loading,
+    error,
+    refresh,
+    confirmManualPayment,
+    updateOrderStatus,
+  } = useOrders();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [detailOrder, setDetailOrder] = useState<StoredOrder | null>(null);
+  const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
+  const [confirmPaymentError, setConfirmPaymentError] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     void refresh();
@@ -41,8 +54,7 @@ function AdminOrdersPage() {
 
   const filtered = orders.filter((order) => {
     const q = search.toLowerCase();
-    const paymentId = order.payment?.razorpayPaymentId?.toLowerCase() ?? "";
-    const razorpayOrderId = order.payment?.razorpayOrderId?.toLowerCase() ?? "";
+    const paymentId = order.payment?.paymentId?.toLowerCase() ?? "";
     const matchesSearch =
       !q ||
       order.orderNumber.toLowerCase().includes(q) ||
@@ -50,8 +62,9 @@ function AdminOrdersPage() {
       order.customer.email.toLowerCase().includes(q) ||
       order.customer.phone.toLowerCase().includes(q) ||
       paymentId.includes(q) ||
-      razorpayOrderId.includes(q);
-    const matchesStatus = statusFilter === "all" || order.status === statusFilter;
+      (order.payment?.transactionReference?.toLowerCase().includes(q) ?? false);
+    const matchesStatus =
+      statusFilter === "all" || order.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
@@ -63,7 +76,9 @@ function AdminOrdersPage() {
     <div>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-serif text-2xl text-burgundy md:text-3xl">Orders</h1>
+          <h1 className="font-serif text-2xl text-burgundy md:text-3xl">
+            Orders
+          </h1>
           <p className="mt-2 text-sm text-muted-foreground md:text-base">
             {orders.length} order{orders.length !== 1 ? "s" : ""} from customers
           </p>
@@ -73,19 +88,23 @@ function AdminOrdersPage() {
       <div className="mt-6 flex flex-wrap gap-3">
         <input
           type="search"
-          placeholder="Search order #, payment id, name, or email…"
+          placeholder="Search order #, payment reference, name, or email…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full max-w-md rounded-lg border border-border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
         />
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as OrderStatus | "all")}
+          onChange={(e) =>
+            setStatusFilter(e.target.value as OrderStatus | "all")
+          }
           className="w-full rounded-lg border border-border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-burgundy/20 sm:w-auto"
         >
           <option value="all">All statuses</option>
           {STATUS_OPTIONS.map((s) => (
-            <option key={s} value={s}>{orderStatusLabels[s]}</option>
+            <option key={s} value={s}>
+              {orderStatusLabels[s]}
+            </option>
           ))}
         </select>
         <button
@@ -98,10 +117,14 @@ function AdminOrdersPage() {
       </div>
 
       {error ? (
-        <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+        <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </p>
       ) : null}
       {loading && orders.length === 0 ? (
-        <p className="mt-10 text-center text-sm text-muted-foreground">Loading orders…</p>
+        <p className="mt-10 text-center text-sm text-muted-foreground">
+          Loading orders…
+        </p>
       ) : null}
 
       {filtered.length === 0 ? (
@@ -109,7 +132,8 @@ function AdminOrdersPage() {
           <Package className="mx-auto size-12 text-muted-foreground/40" />
           <p className="mt-4 font-medium text-foreground">No orders yet</p>
           <p className="mt-2 text-sm text-muted-foreground">
-            When logged-in customers complete checkout, orders appear here automatically.
+            When logged-in customers complete checkout, orders appear here
+            automatically.
           </p>
         </div>
       ) : (
@@ -120,7 +144,10 @@ function AdminOrdersPage() {
               order={order}
               expanded={expandedId === order.id}
               onToggle={() => toggleExpand(order.id)}
-              onViewDetail={() => setDetailOrder(order)}
+              onViewDetail={() => {
+                setConfirmPaymentError(null);
+                setDetailOrder(order);
+              }}
               onStatusChange={(status) => updateOrderStatus(order.id, status)}
             />
           ))}
@@ -134,6 +161,22 @@ function AdminOrdersPage() {
           onStatusChange={(status) => {
             updateOrderStatus(detailOrder.id, status);
             setDetailOrder({ ...detailOrder, status });
+          }}
+          isConfirmingPayment={isConfirmingPayment}
+          confirmPaymentError={confirmPaymentError}
+          onConfirmPayment={() => {
+            setIsConfirmingPayment(true);
+            setConfirmPaymentError(null);
+            void confirmManualPayment(detailOrder.id)
+              .then((updated) => setDetailOrder(updated))
+              .catch((err: unknown) =>
+                setConfirmPaymentError(
+                  err instanceof Error
+                    ? err.message
+                    : "Could not confirm payment.",
+                ),
+              )
+              .finally(() => setIsConfirmingPayment(false));
           }}
         />
       )}
@@ -178,12 +221,24 @@ function OrderCard({
 
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="font-semibold text-foreground">#{order.orderNumber}</p>
+              <p className="font-semibold text-foreground">
+                #{order.orderNumber}
+              </p>
               <span
                 className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${orderStatusStyles[order.status]}`}
               >
                 {orderStatusLabels[order.status]}
               </span>
+              {order.payment?.status === "pending" ? (
+                <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+                  Payment pending verification
+                </span>
+              ) : null}
+              {order.payment?.status === "paid" ? (
+                <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
+                  Payment verified
+                </span>
+              ) : null}
               {order.customer.isGuest ? (
                 <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                   Guest
@@ -197,10 +252,18 @@ function OrderCard({
             <p className="mt-1 text-sm text-muted-foreground break-words">
               {order.customer.name} · {order.customer.email}
             </p>
-            <p className="text-xs text-muted-foreground">{formatOrderDate(order.createdAt)}</p>
-            {order.payment?.razorpayPaymentId ? (
+            <p className="text-xs text-muted-foreground">
+              {formatOrderDate(order.createdAt)}
+            </p>
+            {order.payment?.paymentId ? (
               <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
-                Payment ID: {order.payment.razorpayPaymentId}
+                Payment reference: {order.payment.paymentId}
+              </p>
+            ) : null}
+            {order.payment?.transactionReference ||
+            order.payment?.status === "pending" ? (
+              <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
+                UTR: {order.payment?.transactionReference ?? "Not submitted"}
               </p>
             ) : null}
           </div>
@@ -224,7 +287,16 @@ function OrderCard({
               aria-label="Order status"
             >
               {STATUS_OPTIONS.map((s) => (
-                <option key={s} value={s}>{orderStatusLabels[s]}</option>
+                <option
+                  key={s}
+                  value={s}
+                  disabled={
+                    order.payment?.status === "pending" &&
+                    ["processing", "shipped", "delivered"].includes(s)
+                  }
+                >
+                  {orderStatusLabels[s]}
+                </option>
               ))}
             </select>
           </div>
@@ -235,7 +307,9 @@ function OrderCard({
               onClick={onViewDetail}
               className="flex-1 rounded-lg border border-border px-3 py-2 text-xs font-bold uppercase tracking-wider text-burgundy hover:bg-blush-section sm:flex-none"
             >
-              Details
+              {order.payment?.status === "pending"
+                ? "Review payment"
+                : "Details"}
             </button>
 
             <button
@@ -244,7 +318,11 @@ function OrderCard({
               className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-blush-section"
               aria-label={expanded ? "Collapse" : "Expand"}
             >
-              {expanded ? <ChevronUp className="size-5" /> : <ChevronDown className="size-5" />}
+              {expanded ? (
+                <ChevronUp className="size-5" />
+              ) : (
+                <ChevronDown className="size-5" />
+              )}
             </button>
           </div>
         </div>
@@ -258,11 +336,15 @@ function OrderCard({
                 Customer
               </p>
               <p className="mt-2 font-medium">{order.customer.name}</p>
-              <p className="text-sm text-muted-foreground">{order.customer.email}</p>
-              <p className="text-sm text-muted-foreground">{order.customer.phone}</p>
-              {order.payment?.razorpayPaymentId ? (
+              <p className="text-sm text-muted-foreground">
+                {order.customer.email}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {order.customer.phone}
+              </p>
+              {order.payment?.paymentId ? (
                 <p className="mt-3 break-all font-mono text-xs text-muted-foreground">
-                  Payment: {order.payment.razorpayPaymentId}
+                  Payment reference: {order.payment.paymentId}
                 </p>
               ) : null}
             </div>
@@ -274,22 +356,37 @@ function OrderCard({
               <p className="text-sm text-muted-foreground">
                 {order.shippingAddress.city}, {order.shippingAddress.zip}
               </p>
-              <p className="mt-2 text-sm text-muted-foreground">{order.deliveryLabel}</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {order.deliveryLabel}
+              </p>
               <p className="text-sm text-burgundy">{order.estimatedDelivery}</p>
             </div>
           </div>
 
           <ul className="mt-6 space-y-3">
             {order.items.map((item, index) => (
-              <li key={`${item.name}-${index}`} className="flex gap-3 rounded-lg bg-white p-3">
-                <img src={item.image} alt="" className="size-12 rounded-lg object-cover" />
+              <li
+                key={`${item.name}-${index}`}
+                className="flex gap-3 rounded-lg bg-white p-3"
+              >
+                <img
+                  src={item.image}
+                  alt=""
+                  className="size-12 rounded-lg object-cover"
+                />
                 <div className="min-w-0 flex-1">
                   <p className="font-medium">{item.name}</p>
-                  <p className="text-xs text-muted-foreground">{formatIntention(item.subtitle)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatIntention(item.subtitle)}
+                  </p>
                 </div>
                 <div className="text-right text-sm">
-                  <p className="font-semibold">{formatPrice(item.linePrice * item.quantity)}</p>
-                  <p className="text-xs text-muted-foreground">Qty {item.quantity}</p>
+                  <p className="font-semibold">
+                    {formatPrice(item.linePrice * item.quantity)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Qty {item.quantity}
+                  </p>
                 </div>
               </li>
             ))}
@@ -304,11 +401,81 @@ function OrderDetailModal({
   order,
   onClose,
   onStatusChange,
+  isConfirmingPayment,
+  confirmPaymentError,
+  onConfirmPayment,
 }: {
   order: StoredOrder;
   onClose: () => void;
   onStatusChange: (status: OrderStatus) => void;
+  isConfirmingPayment: boolean;
+  confirmPaymentError: string | null;
+  onConfirmPayment: () => void;
 }) {
+  const [receiptReport, setReceiptReport] =
+    useState<PaymentReceiptOcrResult | null>(null);
+  const [isLoadingReceiptReport, setIsLoadingReceiptReport] = useState(false);
+  const [receiptReportError, setReceiptReportError] = useState<string | null>(
+    null,
+  );
+  useEffect(() => {
+    setReceiptReport(null);
+    setReceiptReportError(null);
+  }, [order.id]);
+
+  const loadReceiptReport = async () => {
+    setIsLoadingReceiptReport(true);
+    setReceiptReportError(null);
+    try {
+      const report = await getUpiPaymentReport({
+        data: { orderId: order.id },
+      });
+      if (!report) {
+        setReceiptReportError(
+          "No OCR payment details are stored for this order.",
+        );
+        setReceiptReport(null);
+      } else {
+        setReceiptReport(report);
+      }
+    } catch (error) {
+      setReceiptReportError(
+        error instanceof Error
+          ? error.message
+          : "Could not load OCR payment details.",
+      );
+      setReceiptReport(null);
+    } finally {
+      setIsLoadingReceiptReport(false);
+    }
+  };
+  const receiptFields: Array<[string, string | null]> = receiptReport
+    ? [
+        [
+          "Amount read",
+          receiptReport.amount === null
+            ? null
+            : formatPrice(receiptReport.amount),
+        ],
+        ["Transaction ID / UTR", receiptReport.transactionReference],
+        ["Order reference read", receiptReport.orderReference],
+        ["Status read", receiptReport.paymentStatus],
+        ["Date / time read", receiptReport.paidAt],
+        ["Payee name", receiptReport.payeeName],
+        ["Payee UPI ID", receiptReport.payeeUpiId],
+        ["Payer name", receiptReport.payerName],
+        ["Payer bank", receiptReport.payerBank],
+        ["Payer account label", receiptReport.payerBankAccount],
+        ["Payer UPI ID", receiptReport.payerUpiId],
+        [
+          "OCR confidence",
+          receiptReport.confidence === null
+            ? null
+            : `${Math.round(receiptReport.confidence)}%`,
+        ],
+      ].filter((field): field is [string, string] => Boolean(field[1]))
+    : [];
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
       <button
@@ -320,8 +487,12 @@ function OrderDetailModal({
       <div className="relative flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl sm:rounded-2xl">
         <div className="flex items-start justify-between gap-4 border-b border-border px-4 py-4 sm:px-6">
           <div>
-            <h2 className="font-serif text-xl text-burgundy">Order #{order.orderNumber}</h2>
-            <p className="text-sm text-muted-foreground">{formatOrderDate(order.createdAt)}</p>
+            <h2 className="font-serif text-xl text-burgundy">
+              Order #{order.orderNumber}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {formatOrderDate(order.createdAt)}
+            </p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close">
             <X className="size-5 text-muted-foreground" />
@@ -341,7 +512,16 @@ function OrderDetailModal({
               className="rounded-lg border border-border px-3 py-2 text-sm"
             >
               {STATUS_OPTIONS.map((s) => (
-                <option key={s} value={s}>Mark as {orderStatusLabels[s]}</option>
+                <option
+                  key={s}
+                  value={s}
+                  disabled={
+                    order.payment?.status === "pending" &&
+                    ["processing", "shipped", "delivered"].includes(s)
+                  }
+                >
+                  Mark as {orderStatusLabels[s]}
+                </option>
               ))}
             </select>
           </div>
@@ -353,10 +533,16 @@ function OrderDetailModal({
                 Customer
               </div>
               <p className="mt-3 font-medium">{order.customer.name}</p>
-              <p className="text-sm text-muted-foreground">{order.customer.email}</p>
-              <p className="text-sm text-muted-foreground">{order.customer.phone}</p>
+              <p className="text-sm text-muted-foreground">
+                {order.customer.email}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {order.customer.phone}
+              </p>
               <p className="mt-2 text-xs text-muted-foreground">
-                {order.customer.isGuest ? "Guest checkout" : "Registered account"}
+                {order.customer.isGuest
+                  ? "Guest checkout"
+                  : "Registered account"}
               </p>
             </section>
             <section className="rounded-xl border border-border p-4">
@@ -373,20 +559,85 @@ function OrderDetailModal({
             </section>
           </div>
 
-          {(order.payment?.razorpayPaymentId || order.payment?.razorpayOrderId) && (
+          {order.payment?.paymentId && (
             <section className="mt-6 rounded-xl border border-border p-4">
               <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Razorpay payment
+                {order.payment.provider ?? "Payment"} reference
               </p>
-              {order.payment.razorpayPaymentId ? (
-                <p className="mt-3 break-all font-mono text-sm text-foreground">
-                  {order.payment.razorpayPaymentId}
+              {order.payment.transactionReference ? (
+                <p className="mt-1 break-all font-mono text-sm text-foreground">
+                  UTR: {order.payment.transactionReference}
                 </p>
               ) : null}
-              {order.payment.razorpayOrderId ? (
-                <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
-                  Order: {order.payment.razorpayOrderId}
-                </p>
+              <p className="mt-3 break-all font-mono text-sm text-foreground">
+                Order reference: {order.payment.paymentId}
+              </p>
+              {order.payment.provider === "UPI QR" ? (
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    disabled={isLoadingReceiptReport}
+                    onClick={() => void loadReceiptReport()}
+                    className="rounded-lg border border-border px-4 py-2 text-xs font-bold uppercase tracking-wider text-burgundy disabled:opacity-60"
+                  >
+                    {isLoadingReceiptReport
+                      ? "Loading OCR details…"
+                      : "View OCR payment details"}
+                  </button>
+                  {receiptReportError ? (
+                    <p className="mt-2 text-sm text-red-700">
+                      {receiptReportError}
+                    </p>
+                  ) : null}
+                  {receiptReport ? (
+                    <div className="mt-3 rounded-lg bg-blush-section p-3">
+                      <p className="text-xs font-bold uppercase tracking-wider text-amber-900">
+                        OCR read values — unverified
+                      </p>
+                      <dl className="mt-2 space-y-1 text-sm">
+                        {receiptFields.map(([label, value]) => (
+                          <div
+                            key={label}
+                            className="grid grid-cols-[minmax(7rem,auto)_1fr] gap-3"
+                          >
+                            <dt className="text-muted-foreground">{label}</dt>
+                            <dd className="break-all font-medium">{value}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                      <p className="mt-3 text-xs leading-relaxed text-amber-900">
+                        OCR text can be wrong or altered. Confirm payment only
+                        after matching the UTR in your bank/UPI records.
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+              {order.payment.provider === "UPI QR" &&
+              order.payment.status === "pending" &&
+              order.status !== "cancelled" ? (
+                <div className="mt-4">
+                  <p className="mb-3 text-xs leading-relaxed text-amber-800">
+                    Verify the exact amount and UTR in the bank/UPI records
+                    before confirming. The customer-provided reference and email
+                    alerts are not proof of payment.
+                  </p>
+                  {confirmPaymentError ? (
+                    <p role="alert" className="mb-3 text-sm text-red-700">
+                      {confirmPaymentError}
+                    </p>
+                  ) : null}
+                  <button
+                    type="button"
+                    disabled={isConfirmingPayment}
+                    onClick={onConfirmPayment}
+                    className="rounded-lg bg-emerald-700 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white disabled:opacity-60"
+                  >
+                    {isConfirmingPayment
+                      ? "Confirming…"
+                      : "Confirm payment received"}
+                  </button>
+                </div>
               ) : null}
             </section>
           )}
@@ -400,15 +651,23 @@ function OrderDetailModal({
                 key={`${item.name}-${index}`}
                 className="flex flex-col gap-3 rounded-xl border border-border p-3 sm:flex-row sm:items-start"
               >
-                <img src={item.image} alt="" className="size-16 rounded-lg object-cover" />
+                <img
+                  src={item.image}
+                  alt=""
+                  className="size-16 rounded-lg object-cover"
+                />
                 <div className="min-w-0 flex-1">
                   <p className="font-medium">{item.name}</p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {formatIntention(item.subtitle)}
                   </p>
-                  <p className="mt-1 text-xs text-muted-foreground">Qty: {item.quantity}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Qty: {item.quantity}
+                  </p>
                 </div>
-                <p className="font-semibold sm:text-right">{formatPrice(item.linePrice * item.quantity)}</p>
+                <p className="font-semibold sm:text-right">
+                  {formatPrice(item.linePrice * item.quantity)}
+                </p>
               </li>
             ))}
           </ul>
@@ -420,7 +679,9 @@ function OrderDetailModal({
             </div>
             <div className="flex justify-between">
               <dt className="text-muted-foreground">Shipping</dt>
-              <dd>{order.shipping === 0 ? "FREE" : formatPrice(order.shipping)}</dd>
+              <dd>
+                {order.shipping === 0 ? "FREE" : formatPrice(order.shipping)}
+              </dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-muted-foreground">Tax</dt>
@@ -428,7 +689,9 @@ function OrderDetailModal({
             </div>
             <div className="flex justify-between border-t border-border pt-3 text-base font-semibold">
               <dt>Total</dt>
-              <dd className="font-serif text-burgundy">{formatPrice(order.total)}</dd>
+              <dd className="font-serif text-burgundy">
+                {formatPrice(order.total)}
+              </dd>
             </div>
           </dl>
         </div>

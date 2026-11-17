@@ -8,6 +8,7 @@ import { PageLayout } from "@/components/layout/PageLayout";
 import {
   emptyShopFilters,
   filterShopProducts,
+  isTestOnlyProduct,
   type ShopFilterState,
 } from "@/lib/shop-filters";
 import { searchShopProducts } from "@/lib/shop-search";
@@ -45,10 +46,10 @@ export const Route = createFileRoute("/shop/")({
         products: rows.map(toInventoryItem),
         error: null as string | null,
       };
-    } catch (err) {
+    } catch {
       return {
         products: [] as InventoryItem[],
-        error: err instanceof Error ? err.message : "Failed to load products.",
+        error: "We couldn't load the collection. Please try again.",
       };
     }
   },
@@ -64,7 +65,9 @@ function ShopPage() {
   const [page, setPage] = useState(1);
 
   const products =
-    liveProducts.length > 0 ? liveProducts : loaderData.products;
+    (liveProducts.length > 0 ? liveProducts : loaderData.products).filter(
+      (product) => !isTestOnlyProduct(product),
+    );
   const error = liveError ?? loaderData.error;
   const showLoading = loading && products.length === 0 && !error;
 
@@ -109,9 +112,13 @@ function ShopPage() {
       ) : error ? (
         <div className="mx-auto max-w-7xl px-4 py-20 text-center md:px-8">
           <p className="text-burgundy">{error}</p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Check MySQL is running and your .env DATABASE_* settings.
-          </p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-5 rounded-lg bg-burgundy px-5 py-3 text-sm font-semibold text-white hover:opacity-90"
+          >
+            Try again
+          </button>
         </div>
       ) : (
       <div className="mx-auto max-w-7xl px-4 py-8 md:px-8 md:py-12">

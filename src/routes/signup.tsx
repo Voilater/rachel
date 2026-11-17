@@ -6,6 +6,7 @@ import { serverRedirect } from "@/lib/server-redirect";
 import { siteConfig } from "@/lib/site-data";
 import { buildPageHead } from "@/lib/seo";
 import { registerUser } from "@/server/users-auth.server";
+import { EMAIL_MAX_LENGTH } from "@/lib/form-validation";
 
 export const Route = createFileRoute("/signup")({
   head: () =>
@@ -81,7 +82,7 @@ function SignupPage() {
     <AuthSplitLayout imagePosition="right" imageSrc={signupHeroImage}>
       <h1 className="font-serif text-3xl text-burgundy md:text-4xl">Create Your Account</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Your account is stored securely in Amazon Cognito
+        Create an account to track orders and save your details.
       </p>
 
       <form method="post" action="/signup" className="mt-8 space-y-5">
@@ -93,6 +94,7 @@ function SignupPage() {
             defaultValue={name}
             placeholder="Evelyn Grace"
             autoComplete="name"
+            maxLength={100}
             required
             className="mt-2 w-full rounded-lg border border-border px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
           />
@@ -106,6 +108,9 @@ function SignupPage() {
             defaultValue={email}
             placeholder="evelyn@example.com"
             autoComplete="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            maxLength={EMAIL_MAX_LENGTH}
             required
             className="mt-2 w-full rounded-lg border border-border px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
           />
@@ -120,7 +125,10 @@ function SignupPage() {
               id="signup-password"
               autoComplete="new-password"
               required
-              minLength={6}
+              minLength={8}
+              maxLength={256}
+              pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{8,}"
+              title="Use at least 8 characters, including an uppercase letter, a lowercase letter, and a number."
               className="w-full rounded-lg border border-border px-4 py-3 pr-12 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
             />
             <button
@@ -156,6 +164,10 @@ function SignupPage() {
               </svg>
             </button>
           </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            At least 8 characters, with an uppercase letter, a lowercase letter,
+            and a number.
+          </p>
         </div>
 
         <label className="flex items-start gap-3 text-sm text-muted-foreground">

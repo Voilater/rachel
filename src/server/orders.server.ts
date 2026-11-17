@@ -1,7 +1,13 @@
 import type { ConfirmedOrderItem } from "@/lib/order-confirmation";
 import type { DeliveryMethod } from "@/lib/order-totals";
+import { requireAdminSession } from "@/server/admin-session.server";
 import { execute, getPool, query, queryOne } from "@/server/db";
-import type { OrderStatus, StoredOrderDto } from "@/server/orders";
+import type {
+  CreateOrderInput,
+  PaymentStatus,
+  OrderStatus,
+  StoredOrderDto,
+} from "@/server/orders";
 
 interface OrderRow {
   id: string;
@@ -22,9 +28,11 @@ interface OrderRow {
   tax: number;
   total: number;
   status: OrderStatus;
+  payment_status?: PaymentStatus;
   created_at: Date;
-  razorpay_order_id?: string | null;
-  razorpay_payment_id?: string | null;
+  payment_provider?: string | null;
+  payment_id?: string | null;
+  payment_transaction_reference?: string | null;
 }
 
 interface OrderItemRow {
@@ -51,9 +59,12 @@ async function loadOrderItems(orderId: string): Promise<ConfirmedOrderItem[]> {
   }));
 }
 
-function mapOrderRow(row: OrderRow, items: ConfirmedOrderItem[]): StoredOrderDto {
-  const razorpayOrderId = row.razorpay_order_id?.trim() || undefined;
-  const razorpayPaymentId = row.razorpay_payment_id?.trim() || undefined;
+function mapOrderRow(
+  row: OrderRow,
+  items: ConfirmedOrderItem[],
+): StoredOrderDto {
+  const provider = row.payment_provider?.trim() || undefined;
+  const paymentId = row.payment_id?.trim() || undefined;
 
   return {
     id: row.id,
@@ -81,14 +92,23 @@ function mapOrderRow(row: OrderRow, items: ConfirmedOrderItem[]): StoredOrderDto
     total: Number(row.total),
     items,
     payment:
-      razorpayOrderId || razorpayPaymentId
-        ? { razorpayOrderId, razorpayPaymentId }
+      provider || paymentId
+        ? {
+            provider,
+            paymentId,
+            transactionReference:
+              row.payment_transaction_reference?.trim() || undefined,
+            status: row.payment_status ?? "paid",
+          }
         : undefined,
   };
 }
 
 export async function listOrdersImpl(): Promise<StoredOrderDto[]> {
-  const rows = await query<OrderRow>("SELECT * FROM orders ORDER BY created_at DESC");
+  await requireAdminSession();
+  const rows = await query<OrderRow>(
+    "SELECT * FROM orders ORDER BY created_at DESC",
+  );
   const orders: StoredOrderDto[] = [];
   for (const row of rows) {
     const items = await loadOrderItems(row.id);
@@ -121,6 +141,15 @@ export async function fetchOrdersForCustomer(opts: {
   return orders;
 }
 
+export async function getOrderByNumberImpl(orderNumber: string) {
+  const row = await queryOne<OrderRow>(
+    "SELECT * FROM orders WHERE order_number = ?",
+    [orderNumber],
+  );
+  if (!row) return null;
+  return mapOrderRow(row, await loadOrderItems(row.id));
+}
+
 export async function fetchMyOrdersForSession(): Promise<StoredOrderDto[]> {
   const { resolveSessionUser } = await import("@/server/session-resolve");
   const session = await resolveSessionUser();
@@ -128,29 +157,9 @@ export async function fetchMyOrdersForSession(): Promise<StoredOrderDto[]> {
   return fetchOrdersForCustomer({ email: session.email, userId: session.id });
 }
 
-export async function createOrderImpl(data: {
-  orderNumber: string;
-  customer: {
-    userId?: string;
-    name: string;
-    email: string;
-    phone: string;
-    isGuest: boolean;
-  };
-  shippingAddress: { street: string; city: string; zip: string };
-  deliveryMethod: DeliveryMethod;
-  deliveryLabel: string;
-  estimatedDelivery: string;
-  subtotal: number;
-  shipping: number;
-  tax: number;
-  total: number;
-  items: Array<ConfirmedOrderItem & { productId?: string }>;
-  payment?: {
-    razorpayOrderId?: string;
-    razorpayPaymentId?: string;
-  };
-}): Promise<StoredOrderDto> {
+export async function createOrderImpl(
+  data: CreateOrderInput,
+): Promise<StoredOrderDto> {
   await query("SELECT id FROM orders LIMIT 0");
 
   const id = `ord_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -166,8 +175,8 @@ export async function createOrderImpl(data: {
         is_guest, shipping_street, shipping_city, shipping_zip,
         delivery_method, delivery_label, estimated_delivery,
         subtotal, shipping_cost, tax, total, status,
-        razorpay_order_id, razorpay_payment_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?)`,
+        payment_provider, payment_id, payment_transaction_reference, payment_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?)`,
       [
         id,
         data.orderNumber,
@@ -186,8 +195,10 @@ export async function createOrderImpl(data: {
         data.shipping,
         data.tax,
         data.total,
-        data.payment?.razorpayOrderId ?? null,
-        data.payment?.razorpayPaymentId ?? null,
+        data.payment?.provider ?? null,
+        data.payment?.paymentId ?? null,
+        data.payment?.transactionReference ?? null,
+        data.payment?.status ?? "paid",
       ],
     );
 
@@ -207,7 +218,7 @@ export async function createOrderImpl(data: {
         ],
       );
 
-      if (item.productId) {
+      if (item.productId && data.payment?.status !== "pending") {
         await connection.execute(
           "UPDATE products SET stock = GREATEST(0, stock - ?) WHERE id = ?",
           [item.quantity, item.productId],
@@ -223,7 +234,9 @@ export async function createOrderImpl(data: {
     connection.release();
   }
 
-  const row = await queryOne<OrderRow>("SELECT * FROM orders WHERE id = ?", [id]);
+  const row = await queryOne<OrderRow>("SELECT * FROM orders WHERE id = ?", [
+    id,
+  ]);
   if (!row) throw new Error("Failed to create order.");
   const items = await loadOrderItems(id);
   const mapped = mapOrderRow(row, items);
@@ -250,17 +263,114 @@ export async function createOrderImpl(data: {
   return mapped;
 }
 
+export async function confirmManualPaymentImpl(data: {
+  id: string;
+}): Promise<StoredOrderDto> {
+  await requireAdminSession();
+
+  const pool = getPool();
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [orderRows] = await connection.execute(
+      "SELECT id, payment_provider, payment_status FROM orders WHERE id = ? FOR UPDATE",
+      [data.id],
+    );
+    const order = (
+      orderRows as Array<{
+        id: string;
+        payment_provider: string | null;
+        payment_status: PaymentStatus;
+      }>
+    )[0];
+    if (!order) throw new Error("Order not found.");
+    if (order.payment_provider !== "UPI QR") {
+      throw new Error("Only direct UPI orders can be manually confirmed.");
+    }
+    if (order.payment_status === "paid") {
+      await connection.commit();
+      const alreadyPaid = await queryOne<OrderRow>(
+        "SELECT * FROM orders WHERE id = ?",
+        [data.id],
+      );
+      if (!alreadyPaid) throw new Error("Confirmed order could not be loaded.");
+      return mapOrderRow(alreadyPaid, await loadOrderItems(data.id));
+    }
+    if (order.payment_status !== "pending") {
+      throw new Error("This payment report is not pending verification.");
+    }
+    const [orderStatusRows] = await connection.execute(
+      "SELECT status FROM orders WHERE id = ?",
+      [data.id],
+    );
+    if (
+      (orderStatusRows as Array<{ status: OrderStatus }>)[0]?.status ===
+      "cancelled"
+    ) {
+      throw new Error("A cancelled order cannot have its payment confirmed.");
+    }
+
+    const [itemRows] = await connection.execute(
+      "SELECT product_id, quantity FROM order_items WHERE order_id = ?",
+      [data.id],
+    );
+    for (const row of itemRows as Array<{
+      product_id: string | null;
+      quantity: number;
+    }>) {
+      if (!row.product_id) continue;
+      const [result] = await connection.execute(
+        "UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?",
+        [row.quantity, row.product_id, row.quantity],
+      );
+      if ((result as { affectedRows: number }).affectedRows !== 1) {
+        throw new Error("Not enough stock remains to confirm this order.");
+      }
+    }
+
+    await connection.execute(
+      "UPDATE orders SET payment_status = 'paid' WHERE id = ?",
+      [data.id],
+    );
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+
+  const row = await queryOne<OrderRow>("SELECT * FROM orders WHERE id = ?", [
+    data.id,
+  ]);
+  if (!row) throw new Error("Confirmed order could not be loaded.");
+  return mapOrderRow(row, await loadOrderItems(data.id));
+}
+
 export async function updateOrderStatusImpl(data: {
   id: string;
   status: OrderStatus;
 }): Promise<StoredOrderDto> {
-  const previous = await queryOne<OrderRow>("SELECT * FROM orders WHERE id = ?", [
+  await requireAdminSession();
+  const previous = await queryOne<OrderRow>(
+    "SELECT * FROM orders WHERE id = ?",
+    [data.id],
+  );
+  if (!previous) throw new Error("Order not found.");
+  if (
+    previous.payment_status === "pending" &&
+    ["processing", "shipped", "delivered"].includes(data.status)
+  ) {
+    throw new Error("Verify the UPI payment before fulfilling this order.");
+  }
+
+  await execute("UPDATE orders SET status = ? WHERE id = ?", [
+    data.status,
     data.id,
   ]);
-  if (!previous) throw new Error("Order not found.");
-
-  await execute("UPDATE orders SET status = ? WHERE id = ?", [data.status, data.id]);
-  const row = await queryOne<OrderRow>("SELECT * FROM orders WHERE id = ?", [data.id]);
+  const row = await queryOne<OrderRow>("SELECT * FROM orders WHERE id = ?", [
+    data.id,
+  ]);
   if (!row) throw new Error("Order not found.");
   const items = await loadOrderItems(data.id);
   const mapped = mapOrderRow(row, items);

@@ -5,7 +5,10 @@ import { PageLayout } from "@/components/layout/PageLayout";
 import { ProfileAvatar } from "@/components/auth/ProfileAvatar";
 import { SignOutButton } from "@/components/auth/SignOutLink";
 import { useAuth } from "@/lib/auth";
-import { clientUserFromAccountStatus, clientUserFromSessionUser } from "@/lib/client-user";
+import {
+  clientUserFromAccountStatus,
+  clientUserFromSessionUser,
+} from "@/lib/client-user";
 import {
   formatOrderDate,
   orderStatusLabels,
@@ -13,6 +16,10 @@ import {
   type StoredOrder,
 } from "@/lib/orders-store";
 import { formatPrice, siteConfig } from "@/lib/site-data";
+import {
+  INDIAN_MOBILE_ERROR,
+  normalizeIndianMobileNumber,
+} from "@/lib/form-validation";
 import { buildPageHead } from "@/lib/seo";
 import { getAccountPageData } from "@/server/account-page";
 import { fetchProfileForEmail } from "@/server/cart";
@@ -56,10 +63,13 @@ function AccountPage() {
   const { clientUser, applyClientUser } = useAuth();
   const [hydrated, setHydrated] = useState(false);
 
-  const [profile, setProfile] = useState<AccountProfileDto | null>(loaderProfile);
+  const [profile, setProfile] = useState<AccountProfileDto | null>(
+    loaderProfile,
+  );
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [myOrders, setMyOrders] = useState<StoredOrder[]>(loaderOrders ?? []);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState<string | null>(null);
@@ -99,10 +109,10 @@ function AccountPage() {
       .then((rows) => {
         if (!cancelled) setMyOrders(rows as StoredOrder[]);
       })
-      .catch((err) => {
+      .catch(() => {
         if (!cancelled) {
           setMyOrders([]);
-          setOrdersError(err instanceof Error ? err.message : "Could not load orders.");
+          setOrdersError("We couldn't load your orders. Please refresh the page.");
         }
       })
       .finally(() => {
@@ -171,15 +181,25 @@ function AccountPage() {
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
-    setSaving(true);
     setError(null);
+    setPhoneError(null);
     setSaved(false);
+    const phone = normalizeIndianMobileNumber(profile.phone);
+    if (phone === null) {
+      setPhoneError(INDIAN_MOBILE_ERROR);
+      return;
+    }
+    if (!profile.name.trim()) {
+      setError("Enter your name before saving.");
+      return;
+    }
 
+    setSaving(true);
     try {
       const updated = await saveAccountProfile({
         data: {
           name: profile.name,
-          phone: profile.phone,
+          phone,
           shippingStreet: profile.shippingStreet,
           shippingCity: profile.shippingCity,
           shippingZip: profile.shippingZip,
@@ -193,8 +213,8 @@ function AccountPage() {
         image: updated.image,
       });
       setSaved(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save profile.");
+    } catch {
+      setError("We couldn't save your changes. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -204,12 +224,18 @@ function AccountPage() {
     <PageLayout>
       <div className="mx-auto max-w-2xl px-4 py-12 md:px-8 md:py-16">
         <div className="flex items-start gap-4">
-          <ProfileAvatar user={avatarUser} className="size-16" iconClassName="size-7" />
+          <ProfileAvatar
+            user={avatarUser}
+            className="size-16"
+            iconClassName="size-7"
+          />
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-burgundy/70">
               {siteConfig.name} member
             </p>
-            <h1 className="font-serif text-3xl text-burgundy md:text-4xl">Your account</h1>
+            <h1 className="font-serif text-3xl text-burgundy md:text-4xl">
+              Your account
+            </h1>
             <p className="mt-2 text-sm text-muted-foreground">
               Profile, shipping details, and your orders.
             </p>
@@ -240,13 +266,23 @@ function AccountPage() {
             Orders placed while signed in with this account.
           </p>
           {ordersLoading ? (
-            <p className="mt-6 text-sm text-muted-foreground">Loading orders…</p>
+            <p className="mt-6 text-sm text-muted-foreground">
+              Loading orders…
+            </p>
           ) : ordersError ? (
             <p className="mt-6 text-sm text-red-700">{ordersError}</p>
           ) : myOrders.length === 0 ? (
             <p className="mt-6 text-sm text-muted-foreground">
-              No orders yet for <span className="font-medium text-foreground">{profile.email}</span>.{" "}
-              <Link to="/shop" search={{ q: "" }} className="text-burgundy hover:underline">
+              No orders yet for{" "}
+              <span className="font-medium text-foreground">
+                {profile.email}
+              </span>
+              .{" "}
+              <Link
+                to="/shop"
+                search={{ q: "" }}
+                className="text-burgundy hover:underline"
+              >
                 Browse the shop
               </Link>
             </p>
@@ -259,18 +295,32 @@ function AccountPage() {
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="font-medium text-foreground">{order.orderNumber}</p>
+                      <p className="font-medium text-foreground">
+                        {order.orderNumber}
+                      </p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {formatOrderDate(order.createdAt)}
                       </p>
-                      {order.payment?.razorpayPaymentId ? (
+                      {order.payment?.paymentId ? (
                         <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
-                          Payment ID: {order.payment.razorpayPaymentId}
+                          Payment reference: {order.payment.paymentId}
+                        </p>
+                      ) : null}
+                      {order.payment?.status === "pending" ? (
+                        <p className="mt-1 text-xs font-medium text-amber-800">
+                          Payment pending verification
+                        </p>
+                      ) : null}
+                      {order.payment?.status === "paid" ? (
+                        <p className="mt-1 text-xs font-medium text-emerald-800">
+                          Payment verified
                         </p>
                       ) : null}
                     </div>
                     <div className="text-right">
-                      <p className="font-medium text-burgundy">{formatPrice(order.total)}</p>
+                      <p className="font-medium text-burgundy">
+                        {formatPrice(order.total)}
+                      </p>
                       <span
                         className={cn(
                           "mt-1 inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium",
@@ -294,9 +344,15 @@ function AccountPage() {
           )}
         </section>
 
-        <form id="profile" onSubmit={handleSave} className="mt-10 scroll-mt-24 space-y-8">
+        <form
+          id="profile"
+          onSubmit={handleSave}
+          className="mt-10 scroll-mt-24 space-y-8"
+        >
           <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">
-            <h2 className="font-serif text-xl text-burgundy">Personal details</h2>
+            <h2 className="font-serif text-xl text-burgundy">
+              Personal details
+            </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               Used on packing slips and bespoke order correspondence.
             </p>
@@ -309,8 +365,13 @@ function AccountPage() {
                   type="text"
                   required
                   value={profile.name}
-                  onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-                  className="mt-2 w-full rounded-xl border border-border px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
+                  onChange={(e) =>
+                    setProfile({ ...profile, name: e.target.value })
+                  }
+                  className={cn(
+                    "mt-2 w-full rounded-xl border px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-burgundy/20",
+                    phoneError ? "border-red-500" : "border-border",
+                  )}
                   placeholder="Your name"
                 />
               </label>
@@ -343,15 +404,37 @@ function AccountPage() {
               <input
                 type="tel"
                 value={profile.phone}
-                onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                onChange={(e) => {
+                  setProfile({ ...profile, phone: e.target.value });
+                  setPhoneError(null);
+                }}
+                autoComplete="tel"
+                inputMode="tel"
+                maxLength={20}
+                aria-invalid={Boolean(phoneError)}
+                aria-describedby={phoneError ? "profile-phone-error" : undefined}
                 className="mt-2 w-full rounded-xl border border-border px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
-                placeholder="+44 7XXX XXXXXX"
+                placeholder="+91 98765 43210"
               />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Enter 10 digits; you may include the +91 country code.
+              </p>
+              {phoneError ? (
+                <p
+                  id="profile-phone-error"
+                  role="alert"
+                  className="mt-1 text-xs text-red-700"
+                >
+                  {phoneError}
+                </p>
+              ) : null}
             </label>
           </section>
 
           <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">
-            <h2 className="font-serif text-xl text-burgundy">Delivery address</h2>
+            <h2 className="font-serif text-xl text-burgundy">
+              Delivery address
+            </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               Pre-fills checkout for handcrafted pieces and bead orders.
             </p>
@@ -363,7 +446,9 @@ function AccountPage() {
                 <input
                   type="text"
                   value={profile.shippingStreet}
-                  onChange={(e) => setProfile({ ...profile, shippingStreet: e.target.value })}
+                  onChange={(e) =>
+                    setProfile({ ...profile, shippingStreet: e.target.value })
+                  }
                   className="mt-2 w-full rounded-xl border border-border px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
                   placeholder="House name, street, area"
                 />
@@ -376,7 +461,9 @@ function AccountPage() {
                   <input
                     type="text"
                     value={profile.shippingCity}
-                    onChange={(e) => setProfile({ ...profile, shippingCity: e.target.value })}
+                    onChange={(e) =>
+                      setProfile({ ...profile, shippingCity: e.target.value })
+                    }
                     className="mt-2 w-full rounded-xl border border-border px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
                     placeholder="Madurai"
                   />
@@ -388,7 +475,9 @@ function AccountPage() {
                   <input
                     type="text"
                     value={profile.shippingZip}
-                    onChange={(e) => setProfile({ ...profile, shippingZip: e.target.value })}
+                    onChange={(e) =>
+                      setProfile({ ...profile, shippingZip: e.target.value })
+                    }
                     className="mt-2 w-full rounded-xl border border-border px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
                     placeholder="W1S 3PR"
                   />
@@ -433,7 +522,8 @@ function AccountPage() {
         </div>
 
         <p className="relative z-10 mt-4 text-center text-xs text-muted-foreground">
-          Visit our studio at {siteConfig.studio.address} · {siteConfig.studio.hours}
+          Visit our studio at {siteConfig.studio.address} ·{" "}
+          {siteConfig.studio.hours}
         </p>
       </div>
     </PageLayout>

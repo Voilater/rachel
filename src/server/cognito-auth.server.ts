@@ -13,8 +13,12 @@ import {
   createCredentialToken,
   writeCredentialCookie,
 } from "@/server/credential-session";
+import { isValidEmail, normalizeEmail } from "@/lib/form-validation";
 import type { ClientUserDto } from "@/server/user-types";
 import { findOrCreateOAuthUser } from "@/server/users.server";
+
+const PASSWORD_REQUIREMENTS =
+  "Use at least 8 characters, including an uppercase letter, a lowercase letter, and a number.";
 
 function requireEnv(name: string) {
   const value = process.env[name];
@@ -65,26 +69,30 @@ function mapCognitoError(err: unknown): Error {
     err && typeof err === "object" && "name" in err
       ? String((err as { name: string }).name)
       : "";
-  const message =
-    err instanceof Error ? err.message : "Authentication failed. Please try again.";
+  const message = err instanceof Error ? err.message : "";
 
   switch (name) {
     case "UsernameExistsException":
       return new Error("An account with this email already exists. Please sign in.");
     case "InvalidPasswordException":
-      return new Error(
-        "Password must be at least 8 characters and include upper, lower, and a number.",
-      );
+      return new Error(PASSWORD_REQUIREMENTS);
     case "NotAuthorizedException":
       return new Error("Invalid email or password.");
     case "UserNotConfirmedException":
       return new Error("Please confirm your email before signing in.");
     case "UserNotFoundException":
       return new Error("Invalid email or password.");
-    case "InvalidParameterException":
-      return new Error(message);
+    case "InvalidParameterException": {
+      if (/email.*(invalid|format)/i.test(message)) {
+        return new Error("Enter a valid email address.");
+      }
+      if (/password/i.test(message)) {
+        return new Error(PASSWORD_REQUIREMENTS);
+      }
+      return new Error("Please check your details and try again.");
+    }
     default:
-      return new Error(message);
+      return new Error("We couldn't complete that right now. Please try again.");
   }
 }
 
@@ -218,24 +226,44 @@ export async function registerUserWithCognito(input: {
   password: string;
 }): Promise<ClientUserDto> {
   const name = input.name.trim();
-  const email = input.email.trim().toLowerCase();
+  const email = normalizeEmail(input.email);
   const password = input.password;
 
-  if (!name || !email || password.length < 8) {
+  if (!name || name.length > 100) {
     await auditCognito("auth.cognito.signup", {
       status: "failure",
       email,
-      message: "Invalid signup input",
-      metadata: { reason: "validation" },
+      message: "Invalid signup name",
+      metadata: { reason: "name_validation" },
     });
-    throw new Error(
-      "Please provide a valid name, email, and password (min 8 characters).",
-    );
+    throw new Error("Enter your name using 1 to 100 characters.");
+  }
+  if (!isValidEmail(email)) {
+    await auditCognito("auth.cognito.signup", {
+      status: "failure",
+      email,
+      message: "Invalid signup email",
+      metadata: { reason: "email_validation" },
+    });
+    throw new Error("Enter a valid email address.");
+  }
+  if (
+    password.length < 8 ||
+    !/[a-z]/.test(password) ||
+    !/[A-Z]/.test(password) ||
+    !/\d/.test(password)
+  ) {
+    await auditCognito("auth.cognito.signup", {
+      status: "failure",
+      email,
+      message: "Invalid signup password",
+      metadata: { reason: "password_validation" },
+    });
+    throw new Error(PASSWORD_REQUIREMENTS);
   }
 
-  const cognito = getClient();
-
   try {
+    const cognito = getClient();
     const result = await cognito.send(
       new SignUpCommand({
         ClientId: clientId(),
@@ -296,11 +324,17 @@ export async function authenticateUserWithCognito(input: {
   email: string;
   password: string;
 }): Promise<ClientUserDto> {
-  const email = input.email.trim().toLowerCase();
+  const email = normalizeEmail(input.email);
   const password = input.password;
-  const cognito = getClient();
+  if (!isValidEmail(email)) {
+    throw new Error("Enter a valid email address.");
+  }
+  if (!password) {
+    throw new Error("Enter your password.");
+  }
 
   try {
+    const cognito = getClient();
     await cognito.send(
       new InitiateAuthCommand({
         AuthFlow: "USER_PASSWORD_AUTH",

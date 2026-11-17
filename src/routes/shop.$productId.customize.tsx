@@ -31,7 +31,15 @@ function ProductCustomizePage() {
     return (
       <PageLayout>
         <div className="mx-auto max-w-3xl px-4 py-20 text-center md:px-8">
-          <p className="text-burgundy">{error}</p>
+          <p className="text-burgundy">
+            We couldn&apos;t load this customization right now. Please try again.
+          </p>
+          <Link
+            to="/shop"
+            className="mt-5 inline-flex rounded-lg bg-burgundy px-5 py-3 text-sm font-semibold text-white hover:opacity-90"
+          >
+            Browse the collection
+          </Link>
         </div>
       </PageLayout>
     );

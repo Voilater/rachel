@@ -30,9 +30,42 @@ function NotFoundComponent() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="text-center">
         <p className="font-serif text-6xl text-burgundy">404</p>
+        <p className="mt-3 text-muted-foreground">
+          We couldn&apos;t find the page you&apos;re looking for.
+        </p>
         <Link to="/" className="mt-6 inline-block bg-burgundy px-6 py-3 text-sm text-white">
           Back to Home
         </Link>
+      </div>
+    </div>
+  );
+}
+
+function AppErrorComponent({ reset }: { reset: () => void }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center px-4">
+      <div className="max-w-md text-center">
+        <h1 className="font-serif text-3xl text-burgundy">
+          We couldn&apos;t load this page.
+        </h1>
+        <p className="mt-3 text-sm text-muted-foreground">
+          Please try again, or return to the home page.
+        </p>
+        <div className="mt-6 flex justify-center gap-3">
+          <button
+            type="button"
+            onClick={reset}
+            className="rounded-lg bg-burgundy px-5 py-3 text-sm font-semibold text-white"
+          >
+            Try again
+          </button>
+          <Link
+            to="/"
+            className="rounded-lg border border-border px-5 py-3 text-sm font-semibold text-foreground"
+          >
+            Back to Home
+          </Link>
+        </div>
       </div>
     </div>
   );
@@ -100,6 +133,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   },
   shellComponent: RootShell,
   component: RootComponent,
+  errorComponent: AppErrorComponent,
   notFoundComponent: NotFoundComponent,
 });
 

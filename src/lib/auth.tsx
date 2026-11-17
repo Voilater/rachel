@@ -23,7 +23,7 @@ import {
 } from "@/lib/logout-state";
 import { isStaticSite } from "@/lib/static-site";
 import type { AccountStatus } from "@/server/auth0";
-import { verifyAdminLogin } from "@/server/auth";
+import { logoutAdminSession, verifyAdminLogin } from "@/server/auth";
 import { getSessionUser } from "@/server/session";
 import type { SessionUser } from "@/server/session-resolve";
 
@@ -48,7 +48,7 @@ interface AuthContextValue {
   applyClientUser: (user: ClientUser) => void;
   refreshClientSession: () => Promise<ClientUser | null>;
   logoutClient: () => void;
-  logoutAdmin: () => void;
+  logoutAdmin: () => Promise<void>;
 }
 
 const CLIENT_SESSION_KEY = "vk_client_session";
@@ -221,9 +221,13 @@ export function AuthProvider({
     window.location.href = `/auth/logout?callbackUrl=${encodeURIComponent(loginUrl)}`;
   }, []);
 
-  const logoutAdmin = useCallback(() => {
-    writeAdminSession(null);
-    setAdminSession(null);
+  const logoutAdmin = useCallback(async () => {
+    try {
+      await logoutAdminSession();
+    } finally {
+      writeAdminSession(null);
+      setAdminSession(null);
+    }
   }, []);
 
   const value = useMemo(

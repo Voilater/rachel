@@ -91,15 +91,15 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         listProducts(),
         new Promise<Awaited<ReturnType<typeof listProducts>>>((_, reject) => {
           setTimeout(
-            () => reject(new Error("Timed out loading products. Is MySQL running?")),
+            () => reject(new Error("Product request timed out.")),
             4000,
           );
         }),
       ]);
       setProducts(rows.map(toInventoryItem));
-    } catch (err) {
+    } catch {
       setProducts([]);
-      setError(err instanceof Error ? err.message : "Failed to load products.");
+      setError("We couldn't load the collection. Please try again.");
     } finally {
       setLoading(false);
       setReady(true);

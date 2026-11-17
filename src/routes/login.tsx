@@ -6,6 +6,7 @@ import { serverRedirect } from "@/lib/server-redirect";
 import { siteConfig } from "@/lib/site-data";
 import { buildPageHead } from "@/lib/seo";
 import { authenticateUser } from "@/server/users-auth.server";
+import { EMAIL_MAX_LENGTH } from "@/lib/form-validation";
 
 export const Route = createFileRoute("/login")({
   head: () =>
@@ -82,7 +83,7 @@ function LoginPage() {
 
       {registered && (
         <p className="mt-4 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800">
-          Account created in Cognito. Please sign in with your email and password.
+          Your account is ready. Sign in with your email and password.
         </p>
       )}
 
@@ -103,6 +104,9 @@ function LoginPage() {
             name="email"
             defaultValue={email}
             autoComplete="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            maxLength={EMAIL_MAX_LENGTH}
             required
             className="mt-2 w-full rounded-lg border border-border px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
           />

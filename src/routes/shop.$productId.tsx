@@ -8,6 +8,7 @@ import { JsonLd } from "@/components/JsonLd";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { useCart } from "@/lib/cart";
 import { toInventoryItem, useInventory } from "@/lib/inventory-store";
+import { isTestOnlyProduct } from "@/lib/shop-filters";
 import {
   breadcrumbJsonLd,
   buildPageHead,
@@ -67,9 +68,10 @@ function ProductDetailPage() {
   const loaderData = Route.useLoaderData();
   const { addItem } = useCart();
   const { getProduct, products, ready, loading, error } = useInventory();
-  const product = getProduct(productId) ?? loaderData.product ?? undefined;
+  const foundProduct = getProduct(productId) ?? loaderData.product ?? undefined;
+  const product = isTestOnlyProduct(foundProduct ?? {}) ? undefined : foundProduct;
   const related: Product[] = products
-    .filter((p) => p.id !== productId)
+    .filter((p) => p.id !== productId && !isTestOnlyProduct(p))
     .slice(0, 4)
     .map((p) => ({
       id: p.id,
@@ -108,7 +110,15 @@ function ProductDetailPage() {
     return (
       <PageLayout>
         <div className="mx-auto max-w-7xl px-4 py-20 text-center md:px-8">
-          <p className="text-burgundy">{error}</p>
+          <p className="text-burgundy">
+            We couldn&apos;t load this piece right now. Please try again.
+          </p>
+          <Link
+            to="/shop"
+            className="mt-5 inline-flex rounded-lg bg-burgundy px-5 py-3 text-sm font-semibold text-white hover:opacity-90"
+          >
+            Browse the collection
+          </Link>
         </div>
       </PageLayout>
     );

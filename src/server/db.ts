@@ -138,12 +138,30 @@ async function initializeSchema() {
       shipping_cost DECIMAL(10, 2) NOT NULL,
       tax DECIMAL(10, 2) NOT NULL,
       total DECIMAL(10, 2) NOT NULL,
+      payment_provider VARCHAR(32) NULL,
+      payment_id VARCHAR(128) NULL,
+      payment_transaction_reference VARCHAR(64) NULL,
+      payment_status ENUM('pending', 'paid', 'rejected') NOT NULL DEFAULT 'paid',
       status ENUM('new', 'processing', 'shipped', 'delivered', 'cancelled') NOT NULL DEFAULT 'new',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_orders_created (created_at),
       INDEX idx_orders_status (status)
     )
   `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS payment_intents (
+      payment_id VARCHAR(128) PRIMARY KEY,
+      order_number VARCHAR(32) NOT NULL UNIQUE,
+      amount DECIMAL(10, 2) NOT NULL,
+      currency VARCHAR(3) NOT NULL,
+      order_payload JSON NOT NULL,
+      report_data JSON NULL,
+      completed_order_id VARCHAR(64) NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await ensurePaymentIntentReportColumn(db);
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS order_items (
@@ -190,6 +208,13 @@ async function initializeSchema() {
     )
   `);
 
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+      email VARCHAR(254) PRIMARY KEY,
+      subscribed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   await migrateLegacyCategories(db);
   await ensureOrderPaymentColumns(db);
 
@@ -197,23 +222,73 @@ async function initializeSchema() {
 }
 
 async function ensureOrderPaymentColumns(db: mysql.Pool) {
-  const columns = [
-    "razorpay_order_id VARCHAR(64) NULL",
-    "razorpay_payment_id VARCHAR(64) NULL",
-  ];
-  for (const column of columns) {
-    try {
-      await db.query(`ALTER TABLE orders ADD COLUMN ${column}`);
-    } catch {
-      // already exists
-    }
+  const [columnRows] = await db.query<mysql.RowDataPacket[]>(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders'`,
+  );
+  const columns = new Set(columnRows.map((row) => String(row.COLUMN_NAME)));
+
+  if (!columns.has("payment_provider")) {
+    await db.query(
+      "ALTER TABLE orders ADD COLUMN payment_provider VARCHAR(32) NULL",
+    );
   }
-  try {
+  if (!columns.has("payment_id")) {
+    await db.query(
+      "ALTER TABLE orders ADD COLUMN payment_id VARCHAR(128) NULL",
+    );
+  }
+  if (!columns.has("payment_transaction_reference")) {
+    await db.query(
+      "ALTER TABLE orders ADD COLUMN payment_transaction_reference VARCHAR(64) NULL",
+    );
+  }
+  if (!columns.has("payment_status")) {
+    await db.query(
+      "ALTER TABLE orders ADD COLUMN payment_status ENUM('pending', 'paid', 'rejected') NOT NULL DEFAULT 'paid'",
+    );
+  }
+
+  if (columns.has("razorpay_order_id") && columns.has("razorpay_payment_id")) {
+    await db.query(`
+      UPDATE orders
+      SET payment_provider = COALESCE(payment_provider, 'Legacy payment'),
+          payment_id = COALESCE(payment_id, razorpay_payment_id)
+      WHERE payment_provider IS NULL OR payment_id IS NULL
+    `);
+  }
+
+  const [indexRows] = await db.query<mysql.RowDataPacket[]>(
+    `SELECT INDEX_NAME FROM information_schema.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders'
+       AND INDEX_NAME IN (
+         'idx_orders_customer_email',
+         'uq_orders_payment_transaction_reference'
+       )`,
+  );
+  const indexes = new Set(indexRows.map((row) => String(row.INDEX_NAME)));
+  if (!indexes.has("idx_orders_customer_email")) {
     await db.query(
       "CREATE INDEX idx_orders_customer_email ON orders (customer_email)",
     );
-  } catch {
-    // already exists
+  }
+  if (!indexes.has("uq_orders_payment_transaction_reference")) {
+    await db.query(
+      "CREATE UNIQUE INDEX uq_orders_payment_transaction_reference ON orders (payment_transaction_reference)",
+    );
+  }
+}
+
+async function ensurePaymentIntentReportColumn(db: mysql.Pool) {
+  const [rows] = await db.query<mysql.RowDataPacket[]>(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'payment_intents'
+       AND COLUMN_NAME = 'report_data'`,
+  );
+  if (rows.length === 0) {
+    await db.query(
+      "ALTER TABLE payment_intents ADD COLUMN report_data JSON NULL",
+    );
   }
 }
 
@@ -237,6 +312,9 @@ async function ensureUserProfileColumns(db: mysql.Pool) {
 async function migrateLegacyCategories(db: mysql.Pool) {
   const { LEGACY_CATEGORY_MAP } = await import("@/lib/site-data");
   for (const [from, to] of Object.entries(LEGACY_CATEGORY_MAP)) {
-    await db.execute("UPDATE products SET category = ? WHERE category = ?", [to, from]);
+    await db.execute("UPDATE products SET category = ? WHERE category = ?", [
+      to,
+      from,
+    ]);
   }
 }

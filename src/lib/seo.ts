@@ -1,16 +1,17 @@
 import { siteConfig } from "@/lib/site-data";
 
 export function getSiteUrl() {
-  if (typeof window !== "undefined" && window.location?.origin) {
-    return window.location.origin.replace(/\/$/, "");
-  }
   const fromEnv =
     (typeof process !== "undefined" && process.env.APP_BASE_URL?.trim()) ||
     (typeof import.meta !== "undefined" &&
       (import.meta as ImportMeta & { env?: Record<string, string> }).env
         ?.VITE_APP_BASE_URL) ||
     "";
-  return (fromEnv || "http://localhost:3000").replace(/\/$/, "");
+  if (fromEnv) return fromEnv.replace(/\/$/, "");
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin.replace(/\/$/, "");
+  }
+  return "http://localhost:3000";
 }
 
 export function absoluteUrl(pathOrUrl: string) {

@@ -9,10 +9,8 @@ import {
 } from "react";
 import { useRouterState } from "@tanstack/react-router";
 
-import type { ConfirmedOrderItem } from "@/lib/order-confirmation";
-import type { DeliveryMethod } from "@/lib/order-totals";
 import {
-  createOrder,
+  confirmManualPaymentById,
   listOrders,
   updateOrderStatusById,
   type OrderStatus,
@@ -28,15 +26,7 @@ interface OrdersContextValue {
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
-  appendOrder: (
-    order: Omit<StoredOrder, "id" | "createdAt" | "status"> & {
-      items: Array<ConfirmedOrderItem & { productId?: string }>;
-      payment?: {
-        razorpayOrderId?: string;
-        razorpayPaymentId?: string;
-      };
-    },
-  ) => Promise<StoredOrder>;
+  confirmManualPayment: (id: string) => Promise<StoredOrder>;
   updateOrderStatus: (id: string, status: OrderStatus) => Promise<void>;
   getOrder: (id: string) => StoredOrder | undefined;
   recentOrders: StoredOrder[];
@@ -71,42 +61,24 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, [pathname, refresh]);
 
-  const appendOrder = useCallback(
-    async (
-      order: Omit<StoredOrder, "id" | "createdAt" | "status"> & {
-        items: Array<ConfirmedOrderItem & { productId?: string }>;
-        payment?: {
-          razorpayOrderId?: string;
-          razorpayPaymentId?: string;
-        };
-      },
-    ) => {
-      const stored = await createOrder({
-        data: {
-          orderNumber: order.orderNumber,
-          customer: order.customer,
-          shippingAddress: order.shippingAddress,
-          deliveryMethod: order.deliveryMethod,
-          deliveryLabel: order.deliveryLabel,
-          estimatedDelivery: order.estimatedDelivery,
-          subtotal: order.subtotal,
-          shipping: order.shipping,
-          tax: order.tax,
-          total: order.total,
-          items: order.items,
-          payment: order.payment,
-        },
-      });
-      setOrders((prev) => [stored, ...prev.filter((o) => o.id !== stored.id)]);
-      return stored;
+  const updateOrderStatus = useCallback(
+    async (id: string, status: OrderStatus) => {
+      const updated = await updateOrderStatusById({ data: { id, status } });
+      setOrders((prev) => prev.map((o) => (o.id === id ? updated : o)));
     },
     [],
   );
 
-  const updateOrderStatus = useCallback(async (id: string, status: OrderStatus) => {
-    const updated = await updateOrderStatusById({ data: { id, status } });
-    setOrders((prev) => prev.map((o) => (o.id === id ? updated : o)));
-  }, []);
+  const confirmManualPayment = useCallback(
+    async (id: string) => {
+      const updated = await confirmManualPaymentById({
+        data: { id },
+      });
+      setOrders((prev) => prev.map((o) => (o.id === id ? updated : o)));
+      return updated;
+    },
+    [],
+  );
 
   const getOrder = useCallback(
     (id: string) => orders.find((o) => o.id === id),
@@ -119,7 +91,9 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
   );
 
   const pendingCount = useMemo(
-    () => orders.filter((o) => o.status === "new" || o.status === "processing").length,
+    () =>
+      orders.filter((o) => o.status === "new" || o.status === "processing")
+        .length,
     [orders],
   );
 
@@ -129,7 +103,7 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       loading,
       error,
       refresh,
-      appendOrder,
+      confirmManualPayment,
       updateOrderStatus,
       getOrder,
       recentOrders,
@@ -140,14 +114,16 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       loading,
       error,
       refresh,
-      appendOrder,
+      confirmManualPayment,
       updateOrderStatus,
       getOrder,
       pendingCount,
     ],
   );
 
-  return <OrdersContext.Provider value={value}>{children}</OrdersContext.Provider>;
+  return (
+    <OrdersContext.Provider value={value}>{children}</OrdersContext.Provider>
+  );
 }
 
 export function useOrders() {

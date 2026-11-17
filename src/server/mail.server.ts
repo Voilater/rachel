@@ -4,7 +4,9 @@ import { siteConfig } from "@/lib/site-data";
 import type { OrderStatus } from "@/server/orders";
 
 function smtpConfigured() {
-  return Boolean(process.env.SMTP_USER?.trim() && process.env.SMTP_PASS?.trim());
+  return Boolean(
+    process.env.SMTP_USER?.trim() && process.env.SMTP_PASS?.trim(),
+  );
 }
 
 function getTransporter() {
@@ -71,6 +73,7 @@ export async function sendOrderStatusEmail(input: {
   }
 
   const brand = process.env.SMTP_FROM_NAME?.trim() || siteConfig.brandName;
+  const safeBrand = escapeHtml(brand);
   const fromAddress =
     process.env.SMTP_FROM?.trim() || process.env.SMTP_USER!.trim();
   const copy = statusCopy[input.status];
@@ -82,7 +85,7 @@ export async function sendOrderStatusEmail(input: {
 
   const html = `
     <div style="font-family: Georgia, serif; color: #2b1a1f; line-height: 1.5;">
-      <p style="font-size: 18px; color: #7a1f3d;">${brand}</p>
+      <p style="font-size: 18px; color: #7a1f3d;">${safeBrand}</p>
       <h1 style="font-size: 22px; margin: 0 0 12px;">${copy.headline}</h1>
       <p>Hi ${escapeHtml(input.customerName)},</p>
       <p>${copy.body}</p>
@@ -111,6 +114,116 @@ export async function sendOrderStatusEmail(input: {
       `Total: ${totalLabel}`,
     ].join("\n"),
     html,
+  });
+
+  return { sent: true as const };
+}
+
+export async function sendContactMessageEmail(input: {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}) {
+  const transporter = getTransporter();
+  if (!transporter) throw new Error("Contact email is not configured.");
+
+  const brand = process.env.SMTP_FROM_NAME?.trim() || siteConfig.brandName;
+  const fromAddress =
+    process.env.SMTP_FROM?.trim() || process.env.SMTP_USER!.trim();
+  const safeBrand = escapeHtml(brand);
+  const safeName = escapeHtml(input.name);
+  const safeEmail = escapeHtml(input.email);
+  const safeSubject = escapeHtml(input.subject);
+  const safeMessage = escapeHtml(input.message).replaceAll("\n", "<br />");
+
+  await transporter.sendMail({
+    from: `"${brand}" <${fromAddress}>`,
+    to: siteConfig.email,
+    replyTo: input.email,
+    subject: `${brand}: ${input.subject}`,
+    text: [
+      `Name: ${input.name}`,
+      `Email: ${input.email}`,
+      `Subject: ${input.subject}`,
+      "",
+      input.message,
+    ].join("\n"),
+    html: `
+      <div style="font-family: Georgia, serif; color: #2b1a1f; line-height: 1.5;">
+        <p style="font-size: 18px; color: #7a1f3d;">${safeBrand}</p>
+        <h1 style="font-size: 22px; margin: 0 0 12px;">${safeSubject}</h1>
+        <p><strong>From:</strong> ${safeName} &lt;${safeEmail}&gt;</p>
+        <p>${safeMessage}</p>
+      </div>
+    `,
+  });
+
+  return { sent: true as const };
+}
+
+export async function sendUpiPaymentReportEmail(input: {
+  orderNumber: string;
+  customerName: string;
+  amount: number;
+  paymentReference: string;
+  transactionReference: string;
+}) {
+  const to = process.env.ADMIN_EMAIL?.trim();
+  if (!smtpConfigured() || !to) {
+    console.warn(
+      "[mail] SMTP or ADMIN_EMAIL is not configured — skipped UPI payment report notification.",
+    );
+    return { sent: false as const, reason: "not_configured" as const };
+  }
+
+  const transporter = getTransporter();
+  if (!transporter) {
+    return { sent: false as const, reason: "not_configured" as const };
+  }
+
+  const brand = process.env.SMTP_FROM_NAME?.trim() || siteConfig.brandName;
+  const safeBrand = escapeHtml(brand);
+  const fromAddress =
+    process.env.SMTP_FROM?.trim() || process.env.SMTP_USER!.trim();
+  const totalLabel = new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 2,
+  }).format(input.amount);
+  const safeOrderNumber = escapeHtml(input.orderNumber);
+  const safeCustomerName = escapeHtml(input.customerName);
+  const safePaymentReference = escapeHtml(input.paymentReference);
+  const safeTransactionReference = escapeHtml(input.transactionReference);
+  const subject = `UPI payment reported — Order #${input.orderNumber}`;
+
+  await transporter.sendMail({
+    from: `"${brand}" <${fromAddress}>`,
+    to,
+    subject,
+    text: [
+      `A customer reported a UPI payment for order #${input.orderNumber}.`,
+      `Customer: ${input.customerName}`,
+      `Amount: ${totalLabel}`,
+      `UTR submitted: ${input.transactionReference}`,
+      `Payment reference: ${input.paymentReference}`,
+      "",
+      "This is only a customer report. Verify the amount and UTR in your bank/UPI records before confirming payment.",
+    ].join("\n"),
+    html: `
+      <div style="font-family: Georgia, serif; color: #2b1a1f; line-height: 1.5;">
+        <p style="font-size: 18px; color: #7a1f3d;">${safeBrand}</p>
+        <h1 style="font-size: 22px; margin: 0 0 12px;">UPI payment reported</h1>
+        <p>A customer reported a UPI payment for order #${safeOrderNumber}.</p>
+        <p>
+          <strong>Customer:</strong> ${safeCustomerName}<br />
+          <strong>Amount:</strong> ${totalLabel}<br />
+          <strong>UTR submitted:</strong> ${safeTransactionReference}<br />
+          <strong>Payment reference:</strong> ${safePaymentReference}
+        </p>
+        <p><strong>This is only a customer report.</strong> Verify the amount and UTR in your bank/UPI records before confirming payment.</p>
+      </div>
+    `,
   });
 
   return { sent: true as const };

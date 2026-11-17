@@ -39,6 +39,10 @@ export interface ShopFilterState {
   availability: ProductAvailability[];
 }
 
+export function isTestOnlyProduct(product: { badge?: string | null }): boolean {
+  return product.badge?.trim().toLowerCase() === "test only";
+}
+
 export const emptyShopFilters: ShopFilterState = {
   categories: [],
   priceRanges: [],

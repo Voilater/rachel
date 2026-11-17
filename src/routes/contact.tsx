@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ChevronDown, Clock, Mail, MessageCircle, Plus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { PageLayout } from "@/components/layout/PageLayout";
+import { NewsletterSignup } from "@/components/NewsletterSignup";
 import {
   contactFaqs,
   contactGallery,
@@ -12,8 +13,21 @@ import {
 } from "@/lib/site-data";
 import { buildPageHead, faqJsonLd } from "@/lib/seo";
 import { JsonLd } from "@/components/JsonLd";
+import {
+  EMAIL_MAX_LENGTH,
+  isValidEmail,
+  normalizeEmail,
+} from "@/lib/form-validation";
+import { submitContactMessage } from "@/server/contact";
 
 const JOURNAL_IMAGE = "/images/hero-feature-1.png";
+const CONTACT_FORM_ERRORS = new Set([
+  "Check the details in your message and try again.",
+  "Enter your name using 1 to 100 characters.",
+  "Enter a valid email address.",
+  "Choose a subject for your message.",
+  "Your message must be between 10 and 5,000 characters.",
+]);
 
 export const Route = createFileRoute("/contact")({
   head: () =>
@@ -31,10 +45,51 @@ function ContactPage() {
   const [openFaq, setOpenFaq] = useState<string>(contactFaqs[0].id);
   const [subject, setSubject] = useState<string>(contactSubjects[0]);
   const [gallery, setGallery] = useState(() => [...contactGallery]);
+  const [contactName, setContactName] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactMessage, setContactMessage] = useState("");
+  const [contactError, setContactError] = useState<string | null>(null);
+  const [contactSent, setContactSent] = useState(false);
+  const [isSendingContact, setIsSendingContact] = useState(false);
 
   useEffect(() => {
     setGallery(pickContactGallery(4));
   }, []);
+
+  const handleContactSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setContactError(null);
+    setContactSent(false);
+
+    if (!isValidEmail(contactEmail)) {
+      setContactError("Enter a valid email address.");
+      return;
+    }
+
+    setIsSendingContact(true);
+    try {
+      await submitContactMessage({
+        data: {
+          name: contactName,
+          email: normalizeEmail(contactEmail),
+          subject,
+          message: contactMessage,
+        },
+      });
+      setContactMessage("");
+      setContactSent(true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      setContactError(
+        CONTACT_FORM_ERRORS.has(message) ||
+          message.startsWith("We couldn't send your message right now.")
+          ? message
+          : `We couldn't send your message right now. Email us at ${siteConfig.email}.`,
+      );
+    } finally {
+      setIsSendingContact(false);
+    }
+  };
 
   return (
     <PageLayout>
@@ -107,14 +162,23 @@ function ContactPage() {
           <div className="rounded-2xl bg-blush-card/50 p-6 md:p-8">
             <form
               className="rounded-2xl bg-white p-6 shadow-sm md:p-8"
-              onSubmit={(e) => e.preventDefault()}
+              onSubmit={handleContactSubmit}
             >
               <div className="grid gap-5 sm:grid-cols-2">
                 <label className="block">
                   <span className="text-sm font-medium text-foreground">Full Name</span>
                   <input
                     type="text"
+                    value={contactName}
+                    onChange={(event) => {
+                      setContactName(event.target.value);
+                      setContactError(null);
+                      setContactSent(false);
+                    }}
                     placeholder="Evelyn Grace"
+                    autoComplete="name"
+                    maxLength={100}
+                    required
                     className="mt-2 w-full rounded-xl border border-border bg-blush-section/50 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
                   />
                 </label>
@@ -122,7 +186,18 @@ function ContactPage() {
                   <span className="text-sm font-medium text-foreground">Email Address</span>
                   <input
                     type="email"
+                    value={contactEmail}
+                    onChange={(event) => {
+                      setContactEmail(event.target.value);
+                      setContactError(null);
+                      setContactSent(false);
+                    }}
                     placeholder="evelyn@example.com"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    maxLength={EMAIL_MAX_LENGTH}
+                    required
                     className="mt-2 w-full rounded-xl border border-border bg-blush-section/50 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
                   />
                 </label>
@@ -133,7 +208,11 @@ function ContactPage() {
                 <div className="relative mt-2">
                   <select
                     value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
+                    onChange={(event) => {
+                      setSubject(event.target.value);
+                      setContactError(null);
+                      setContactSent(false);
+                    }}
                     className="w-full appearance-none rounded-xl border border-border bg-blush-section/50 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
                   >
                     {contactSubjects.map((option) => (
@@ -150,16 +229,37 @@ function ContactPage() {
                 <span className="text-sm font-medium text-foreground">Your Message</span>
                 <textarea
                   rows={5}
+                  value={contactMessage}
+                  onChange={(event) => {
+                    setContactMessage(event.target.value);
+                    setContactError(null);
+                    setContactSent(false);
+                  }}
                   placeholder="Share your intentions with us..."
+                  minLength={10}
+                  maxLength={5000}
+                  required
                   className="mt-2 w-full resize-none rounded-xl border border-border bg-blush-section/50 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
                 />
               </label>
 
+              {contactError ? (
+                <p role="alert" className="mt-4 text-sm text-red-700">
+                  {contactError}
+                </p>
+              ) : null}
+              {contactSent ? (
+                <p role="status" className="mt-4 text-sm text-green-800">
+                  Thank you. Your message has been sent, and we&apos;ll be in touch soon.
+                </p>
+              ) : null}
+
               <button
                 type="submit"
-                className="mt-8 w-full rounded-full bg-burgundy py-4 text-xs font-bold uppercase tracking-[0.15em] text-white transition-opacity hover:opacity-90"
+                disabled={isSendingContact}
+                className="mt-8 w-full rounded-full bg-burgundy py-4 text-xs font-bold uppercase tracking-[0.15em] text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Send Message
+                {isSendingContact ? "Sending…" : "Send Message"}
               </button>
             </form>
           </div>
@@ -233,21 +333,7 @@ function ContactPage() {
             Receive curated inspirations, early access to new collections, and stories from our
             studio.
           </p>
-          <form className="mt-10" onSubmit={(e) => e.preventDefault()}>
-            <label htmlFor="contact-email" className="sr-only">Email</label>
-            <input
-              id="contact-email"
-              type="email"
-              placeholder="Your Email Address"
-              className="w-full border-0 border-b-2 border-burgundy/30 bg-transparent py-3 text-center font-serif text-burgundy placeholder:text-burgundy/50 outline-none focus:border-burgundy"
-            />
-            <button
-              type="submit"
-              className="mt-8 w-full max-w-xs bg-burgundy px-8 py-3.5 text-xs font-bold uppercase tracking-[0.15em] text-white hover:opacity-90"
-            >
-              Subscribe
-            </button>
-          </form>
+          <NewsletterSignup />
         </div>
       </section>
     </PageLayout>

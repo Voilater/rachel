@@ -137,8 +137,13 @@ function AdminLayout() {
             <button
               type="button"
               onClick={() => {
-                logoutAdmin();
-                navigate({ to: "/admin/login" });
+                void logoutAdmin()
+                  .catch(() => {
+                    window.alert(
+                      "Admin sign-out could not complete. Please close this browser tab.",
+                    );
+                  })
+                  .finally(() => navigate({ to: "/admin/login" }));
               }}
               className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm text-muted-foreground hover:text-burgundy sm:px-3"
             >

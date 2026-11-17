@@ -18,13 +18,15 @@ export interface ConfirmedOrder {
   tax: number;
   total: number;
   items: ConfirmedOrderItem[];
+  paymentStatus?: "pending" | "paid" | "rejected";
 }
 
 const STORAGE_KEY = "vk_last_order";
 
 export function generateOrderNumber() {
-  const suffix = Math.floor(10000 + Math.random() * 90000);
-  return `LB-${suffix}`;
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const suffix = crypto.randomUUID().slice(0, 8).toUpperCase();
+  return `LB-${timestamp}-${suffix}`;
 }
 
 function addBusinessDays(start: Date, businessDays: number) {
