@@ -136,7 +136,7 @@ export const createProduct = createServerFn({ method: "POST" })
         data.rating ?? 4.5,
         data.badge ?? null,
         data.featured ?? false,
-        data.cartPrice ?? null,
+        data.cartPrice ?? data.price,
         data.cartSubtitle ?? null,
         extra,
       ],
@@ -173,7 +173,8 @@ export const updateProductById = createServerFn({ method: "POST" })
         patch.rating ?? existing.rating,
         patch.badge ?? existing.badge,
         patch.featured ?? existing.featured,
-        patch.cartPrice ?? existing.cart_price,
+        patch.cartPrice ??
+          (patch.price !== undefined ? patch.price : existing.cart_price),
         patch.cartSubtitle ?? existing.cart_subtitle,
         data.id,
       ],

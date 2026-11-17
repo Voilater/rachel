@@ -40,7 +40,6 @@ interface CheckoutProductRow {
   name: string;
   image: string;
   price: number;
-  cart_price: number | null;
   stock: number;
   badge: string | null;
 }
@@ -129,7 +128,7 @@ async function prepareOrderInput(
   }
   const placeholders = productIds.map(() => "?").join(", ");
   const products = await query<CheckoutProductRow>(
-    `SELECT id, name, image, price, cart_price, stock, badge
+    `SELECT id, name, image, price, stock, badge
      FROM products WHERE id IN (${placeholders})`,
     productIds,
   );
@@ -144,7 +143,7 @@ async function prepareOrderInput(
       throw new Error("A product in this checkout is no longer available.");
     }
 
-    const unitPrice = Number(product.cart_price ?? product.price);
+    const unitPrice = Number(product.price);
     if (Math.round(item.linePrice * 100) !== Math.round(unitPrice * 100)) {
       throw new Error(
         "A product price changed. Please review your cart and try again.",

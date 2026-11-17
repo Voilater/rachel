@@ -42,7 +42,7 @@ function getCartSubtitle(product: ShopProduct, colorId: string): string {
 }
 
 function getLinePrice(product: ShopProduct): number {
-  return product.cartPrice ?? product.price;
+  return product.price;
 }
 
 function itemKey(item: Pick<CartItem, "product" | "size" | "colorId">) {
