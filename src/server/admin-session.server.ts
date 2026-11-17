@@ -13,6 +13,7 @@ function getSigningKey() {
     process.env.ADMIN_SESSION_SECRET?.trim() ||
     process.env.AUTH0_SECRET?.trim() ||
     process.env.CREDENTIAL_SESSION_SECRET?.trim() ||
+    process.env.AUTH_SECRET?.trim() ||
     (process.env.NODE_ENV !== "production"
       ? process.env.ADMIN_PASSWORD?.trim()
       : undefined);
