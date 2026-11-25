@@ -5,7 +5,7 @@ import { Price } from "@/components/Price";
 import { useCart } from "@/lib/cart";
 import { cn } from "@/lib/utils";
 
-interface VkProductCardProps {
+interface ProductCardProps {
   product: Product;
 }
 
@@ -22,7 +22,7 @@ function toShopProduct(product: Product): ShopProduct {
   };
 }
 
-export function VkProductCard({ product }: VkProductCardProps) {
+export function ProductCard({ product }: ProductCardProps) {
   const { addItem, openCart } = useCart();
   const isFeatured = product.featured;
 

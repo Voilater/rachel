@@ -12,7 +12,7 @@ const reactStartClientEntry = path.resolve(
 
 function spaClientEntryPlugin(): Plugin {
   return {
-    name: "vk-spa-client-entry",
+    name: "rachelparadise-spa-client-entry",
     enforce: "pre",
     resolveId(source) {
       if (source === reactStartClientEntry || source.endsWith("default-entry/client.tsx")) {

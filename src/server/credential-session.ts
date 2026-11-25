@@ -5,7 +5,8 @@ import {
   setCookie,
 } from "@tanstack/react-start/server";
 
-const COOKIE_NAME = "vk_cred_session";
+const COOKIE_NAME = "rachelparadise_cred_session";
+const LEGACY_COOKIE_NAME = "vk_cred_session";
 
 export interface CredentialSessionUser {
   id: string;
@@ -17,7 +18,11 @@ function getSecret() {
   const raw =
     process.env.AUTH0_SECRET ??
     process.env.CREDENTIAL_SESSION_SECRET ??
-    "vk-dev-credential-session-secret";
+    process.env.AUTH_SECRET ??
+    (process.env.NODE_ENV !== "production"
+      ? "development-only-credential-session-secret"
+      : undefined);
+  if (!raw) throw new Error("Credential session security is not configured.");
   return new TextEncoder().encode(raw);
 }
 
@@ -34,13 +39,17 @@ export async function createCredentialToken(user: CredentialSessionUser) {
 }
 
 export async function readCredentialSession(): Promise<CredentialSessionUser | null> {
-  const token = getCookie(COOKIE_NAME);
+  const token = getCookie(COOKIE_NAME) ?? getCookie(LEGACY_COOKIE_NAME);
   if (!token) return null;
 
   try {
     const { payload } = await jwtVerify(token, getSecret());
     if (typeof payload.id !== "string" || typeof payload.email !== "string") {
       return null;
+    }
+    if (!getCookie(COOKIE_NAME)) {
+      writeCredentialCookie(token);
+      deleteCookie(LEGACY_COOKIE_NAME, { path: "/" });
     }
 
     return {
@@ -49,7 +58,7 @@ export async function readCredentialSession(): Promise<CredentialSessionUser | n
       name:
         typeof payload.name === "string"
           ? payload.name
-          : payload.email.split("@")[0] ?? "Guest",
+          : (payload.email.split("@")[0] ?? "Guest"),
     };
   } catch {
     return null;
@@ -68,4 +77,5 @@ export function writeCredentialCookie(token: string) {
 
 export function clearCredentialCookie() {
   deleteCookie(COOKIE_NAME, { path: "/" });
+  deleteCookie(LEGACY_COOKIE_NAME, { path: "/" });
 }

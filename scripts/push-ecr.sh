@@ -64,7 +64,7 @@ if ! docker buildx version >/dev/null 2>&1; then
   exit 1
 fi
 
-BUILDER_NAME="vk-ecr-builder"
+BUILDER_NAME="rachelparadise-ecr-builder"
 if ! docker buildx inspect "$BUILDER_NAME" >/dev/null 2>&1; then
   echo "==> Creating buildx builder..."
   docker buildx create --name "$BUILDER_NAME" --use

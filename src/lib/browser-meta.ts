@@ -45,8 +45,8 @@ export function collectBrowserMeta(): BrowserMeta {
   let sessionStorageEnabled = false;
   try {
     localStorageEnabled = Boolean(window.localStorage);
-    window.localStorage.setItem("__vk_audit_probe", "1");
-    window.localStorage.removeItem("__vk_audit_probe");
+    window.localStorage.setItem("__rachelparadise_audit_probe", "1");
+    window.localStorage.removeItem("__rachelparadise_audit_probe");
   } catch {
     localStorageEnabled = false;
   }

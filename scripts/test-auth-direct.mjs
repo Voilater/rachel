@@ -15,7 +15,7 @@ function getSecret() {
   const raw =
     process.env.AUTH0_SECRET ??
     process.env.CREDENTIAL_SESSION_SECRET ??
-    "vk-dev-credential-session-secret";
+    "development-only-credential-session-secret";
   return new TextEncoder().encode(raw);
 }
 
@@ -46,7 +46,7 @@ async function main() {
     port: Number(process.env.DATABASE_PORT ?? 3306),
     user: process.env.DATABASE_USER ?? "admin",
     password: process.env.DATABASE_PASSWORD ?? "admin",
-    database: process.env.DATABASE_NAME ?? "vkstudio",
+    database: process.env.DATABASE_NAME ?? "rachelparadise",
   });
 
   console.log("Testing signup/login against MySQL...\n");

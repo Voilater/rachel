@@ -21,6 +21,7 @@ import {
   markLoggedOut,
   clearLocalAuthStorage,
 } from "@/lib/logout-state";
+import { migrateStorageKeys } from "@/lib/storage-migration";
 import { isStaticSite } from "@/lib/static-site";
 import type { AccountStatus } from "@/server/auth0";
 import { logoutAdminSession, verifyAdminLogin } from "@/server/auth";
@@ -51,14 +52,17 @@ interface AuthContextValue {
   logoutAdmin: () => Promise<void>;
 }
 
-const CLIENT_SESSION_KEY = "vk_client_session";
-const ADMIN_SESSION_KEY = "vk_admin_session";
+const CLIENT_SESSION_KEY = "rachelparadise_client_session";
+const ADMIN_SESSION_KEY = "rachelparadise_admin_session";
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 function readClientSession(): ClientSession | null {
   if (typeof localStorage === "undefined") return null;
   try {
+    migrateStorageKeys(localStorage, [
+      ["vk_client_session", CLIENT_SESSION_KEY],
+    ]);
     const raw = localStorage.getItem(CLIENT_SESSION_KEY);
     return raw ? (JSON.parse(raw) as ClientSession) : null;
   } catch {
@@ -72,12 +76,16 @@ function writeClientSession(session: ClientSession | null) {
     localStorage.setItem(CLIENT_SESSION_KEY, JSON.stringify(session));
   } else {
     localStorage.removeItem(CLIENT_SESSION_KEY);
+    localStorage.removeItem("vk_client_session");
   }
 }
 
 function readAdminSession(): AdminSession | null {
   if (typeof sessionStorage === "undefined") return null;
   try {
+    migrateStorageKeys(sessionStorage, [
+      ["vk_admin_session", ADMIN_SESSION_KEY],
+    ]);
     const raw = sessionStorage.getItem(ADMIN_SESSION_KEY);
     return raw ? (JSON.parse(raw) as AdminSession) : null;
   } catch {
@@ -91,6 +99,7 @@ function writeAdminSession(session: AdminSession | null) {
     sessionStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(session));
   } else {
     sessionStorage.removeItem(ADMIN_SESSION_KEY);
+    sessionStorage.removeItem("vk_admin_session");
   }
 }
 
@@ -211,7 +220,11 @@ export function AuthProvider({
     if (typeof window === "undefined") return;
 
     markLoggedOut();
-    const guestId = localStorage.getItem("vk_guest_id") ?? undefined;
+    migrateStorageKeys(localStorage, [
+      ["vk_guest_id", "rachelparadise_guest_id"],
+    ]);
+    const guestId =
+      localStorage.getItem("rachelparadise_guest_id") ?? undefined;
     clearLocalAuthStorage();
     setClientUser(null);
     clearCartStorage();

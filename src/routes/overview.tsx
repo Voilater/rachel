@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 
-import { VkProductCard } from "@/components/VkProductCard";
+import { ProductCard } from "@/components/ProductCard";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { useInventory } from "@/lib/inventory-store";
 import { siteConfig, type Product } from "@/lib/site-data";
@@ -45,7 +45,7 @@ function OverviewPage() {
         ) : (
           <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {collection.map((product) => (
-              <VkProductCard key={product.id} product={product} />
+              <ProductCard key={product.id} product={product} />
             ))}
           </div>
         )}

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy Rachel/VK site on a server (EC2).
+# Deploy Rachel Paradise on a server (EC2).
 #
 # Default: pull linux/amd64 image from ECR.
 # Use --build on EC2 if the ECR image was built on Apple Silicon (arm64).
@@ -26,7 +26,7 @@ APP_PORT="${APP_PORT:-3000}"
 APP_BASE_URL="${APP_BASE_URL:-http://localhost:${APP_PORT}}"
 SYNC_CATALOG=0
 BUILD_ON_SERVER=0
-NETWORK_NAME="vk-net"
+NETWORK_NAME="rachelparadise-net"
 
 usage() {
   cat <<'EOF'
@@ -87,16 +87,32 @@ compose() {
   return 1
 }
 
+read_env_value() {
+  local key="$1"
+  local value
+  value="$(awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print; exit }' .env)"
+  if [[ -z "$value" ]]; then
+    echo "Error: $key must be set in .env." >&2
+    exit 1
+  fi
+  printf '%s' "$value"
+}
+
+DB_ROOT_PASSWORD="$(read_env_value DATABASE_ROOT_PASSWORD)"
+DB_NAME="$(read_env_value DATABASE_NAME)"
+DB_USER="$(read_env_value DATABASE_USER)"
+DB_PASSWORD="$(read_env_value DATABASE_PASSWORD)"
+
 wait_for_mysql() {
   echo "==> Waiting for MySQL..."
   for _ in $(seq 1 40); do
-    if docker exec vk-mysql mysqladmin ping -h localhost -uroot -pvk_root --silent >/dev/null 2>&1; then
+    if docker exec -e MYSQL_PWD="$DB_ROOT_PASSWORD" rachelparadise-mysql mysqladmin ping -h localhost -uroot --silent >/dev/null 2>&1; then
       return 0
     fi
     sleep 2
   done
   echo "Error: MySQL did not become healthy in time." >&2
-  docker logs --tail=50 vk-mysql || true
+  docker logs --tail=50 rachelparadise-mysql || true
   return 1
 }
 
@@ -104,36 +120,36 @@ start_with_plain_docker() {
   echo "==> Starting app + MySQL (plain docker)..."
 
   docker network create "$NETWORK_NAME" 2>/dev/null || true
-  docker volume create vk_mysql_data 2>/dev/null || true
-  docker rm -f vk-app vk-mysql 2>/dev/null || true
+  docker volume create rachelparadise_mysql_data 2>/dev/null || true
+  docker rm -f rachelparadise-app rachelparadise-mysql 2>/dev/null || true
 
   docker run -d \
-    --name vk-mysql \
+    --name rachelparadise-mysql \
     --network "$NETWORK_NAME" \
     --restart unless-stopped \
-    -e MYSQL_ROOT_PASSWORD=vk_root \
-    -e MYSQL_DATABASE=vk_studio \
-    -e MYSQL_USER=vk_app \
-    -e MYSQL_PASSWORD=vk_app_pass \
+    -e MYSQL_ROOT_PASSWORD="$DB_ROOT_PASSWORD" \
+    -e MYSQL_DATABASE="$DB_NAME" \
+    -e MYSQL_USER="$DB_USER" \
+    -e MYSQL_PASSWORD="$DB_PASSWORD" \
     -p 3306:3306 \
-    -v vk_mysql_data:/var/lib/mysql \
+    -v rachelparadise_mysql_data:/var/lib/mysql \
     mysql:8.4
 
   wait_for_mysql
 
   docker run -d \
-    --name vk-app \
+    --name rachelparadise-app \
     --network "$NETWORK_NAME" \
     --restart unless-stopped \
     --env-file .env \
     -e NODE_ENV=production \
     -e PORT=3000 \
     -e HOST=0.0.0.0 \
-    -e DATABASE_HOST=vk-mysql \
+    -e DATABASE_HOST=rachelparadise-mysql \
     -e DATABASE_PORT=3306 \
-    -e DATABASE_USER=vk_app \
-    -e DATABASE_PASSWORD=vk_app_pass \
-    -e DATABASE_NAME=vk_studio \
+    -e DATABASE_USER="$DB_USER" \
+    -e DATABASE_PASSWORD="$DB_PASSWORD" \
+    -e DATABASE_NAME="$DB_NAME" \
     -e APP_BASE_URL="$APP_BASE_URL" \
     -e AUTH_TRUST_HOST=true \
     -p "${APP_PORT}:3000" \
@@ -142,7 +158,7 @@ start_with_plain_docker() {
 
 start_stack() {
   export ECR_IMAGE APP_PORT APP_BASE_URL
-  docker rm -f vk-app vk-mysql 2>/dev/null || true
+  docker rm -f rachelparadise-app rachelparadise-mysql 2>/dev/null || true
 
   if ! has_compose; then
     echo "==> Docker Compose not installed — using plain docker"
@@ -159,7 +175,7 @@ start_stack() {
     return
   fi
 
-  if ! docker ps --format '{{.Names}}' | grep -qx 'vk-mysql'; then
+  if ! docker ps --format '{{.Names}}' | grep -qx 'rachelparadise-mysql'; then
     echo "Warning: compose did not start containers; trying plain docker..." >&2
     compose down --remove-orphans 2>/dev/null || true
     start_with_plain_docker
@@ -168,7 +184,7 @@ start_stack() {
 
   wait_for_mysql
 
-  if ! docker ps --format '{{.Names}}' | grep -qx 'vk-app'; then
+  if ! docker ps --format '{{.Names}}' | grep -qx 'rachelparadise-app'; then
     echo "Warning: app container missing after compose up; trying plain docker..." >&2
     compose down --remove-orphans 2>/dev/null || true
     start_with_plain_docker
@@ -187,7 +203,7 @@ if [[ ! -f "$COMPOSE_FILE" ]]; then
   exit 1
 fi
 
-echo "==> Deploying Rachel app"
+echo "==> Deploying Rachel Paradise"
 echo "    Mode:      $([[ "$BUILD_ON_SERVER" -eq 1 ]] && echo 'build on server' || echo 'pull from ECR')"
 echo "    Image:     ${ECR_IMAGE}"
 echo "    App URL:   ${APP_BASE_URL}"
@@ -232,8 +248,8 @@ done
 if [[ "$ready" -ne 1 ]]; then
   echo "Error: app not responding on port ${APP_PORT}." >&2
   docker ps -a
-  docker logs --tail=80 vk-app 2>/dev/null || true
-  docker logs --tail=80 vk-mysql 2>/dev/null || true
+  docker logs --tail=80 rachelparadise-app 2>/dev/null || true
+  docker logs --tail=80 rachelparadise-mysql 2>/dev/null || true
   exit 1
 fi
 
@@ -252,5 +268,5 @@ fi
 echo ""
 echo "Deployment complete."
 echo "  App:   ${APP_BASE_URL}"
-echo "  Logs:  docker logs -f vk-app"
-echo "  Stop:  docker rm -f vk-app vk-mysql"
+echo "  Logs:  docker logs -f rachelparadise-app"
+echo "  Stop:  docker rm -f rachelparadise-app rachelparadise-mysql"

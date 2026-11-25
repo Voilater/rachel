@@ -12,6 +12,7 @@ import {
 import { hydrateCartItemsLocal } from "@/lib/hydrate-cart-local";
 import { isStaticSite } from "@/lib/static-site";
 import { isTestOnlyProduct } from "@/lib/shop-filters";
+import { migrateStorageKeys } from "@/lib/storage-migration";
 import type { StoredCartItem } from "@/server/cart-types";
 import {
   clearCartItems,
@@ -29,8 +30,16 @@ export interface CartItem {
   linePrice: number;
 }
 
-const CART_STORAGE_KEY = "vk_cart";
-const GUEST_ID_KEY = "vk_guest_id";
+const CART_STORAGE_KEY = "rachelparadise_cart";
+const GUEST_ID_KEY = "rachelparadise_guest_id";
+
+function migrateCartStorage() {
+  if (typeof localStorage === "undefined") return;
+  migrateStorageKeys(localStorage, [
+    ["vk_cart", CART_STORAGE_KEY],
+    ["vk_guest_id", GUEST_ID_KEY],
+  ]);
+}
 
 function getCartSubtitle(product: ShopProduct, colorId: string): string {
   if (product.cartSubtitle) return product.cartSubtitle;
@@ -51,6 +60,7 @@ function itemKey(item: Pick<CartItem, "product" | "size" | "colorId">) {
 
 function getGuestId(): string {
   if (typeof localStorage === "undefined") return "anonymous";
+  migrateCartStorage();
   let id = localStorage.getItem(GUEST_ID_KEY);
   if (!id) {
     id = crypto.randomUUID();
@@ -62,6 +72,7 @@ function getGuestId(): string {
 function readLocalCart(): StoredCartItem[] {
   if (typeof localStorage === "undefined") return [];
   try {
+    migrateCartStorage();
     const raw = localStorage.getItem(CART_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as StoredCartItem[];
@@ -322,7 +333,10 @@ export function getCartItemKey(item: CartItem) {
 
 export function clearCartStorage() {
   if (typeof localStorage !== "undefined") {
+    migrateCartStorage();
     localStorage.removeItem(CART_STORAGE_KEY);
     localStorage.removeItem(GUEST_ID_KEY);
+    localStorage.removeItem("vk_cart");
+    localStorage.removeItem("vk_guest_id");
   }
 }

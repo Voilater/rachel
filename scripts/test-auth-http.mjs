@@ -126,7 +126,7 @@ async function main() {
     process.exit(1);
   }
   console.log("OK signup:", signupUser.email);
-  console.log("   Cookie jar:", cookieHeader(jar).includes("vk_cred_session") ? "vk_cred_session set" : "no vk_cred_session");
+  console.log("   Cookie jar:", cookieHeader(jar).includes("rachelparadise_cred_session") ? "credential session set" : "no credential session");
 
   console.log("\n2. Get session after signup");
   const sessionAfterSignup = await callServerFn(SESSION_FN, "GET", undefined, jar);
@@ -137,7 +137,7 @@ async function main() {
   }
   console.log("OK session:", sessionUser1.email, `(${sessionUser1.authMethod ?? "unknown"})`);
 
-  jar.delete("vk_cred_session");
+  jar.delete("rachelparadise_cred_session");
   console.log("\n3. Login (cleared cookie, fresh login)");
   const login = await callServerFn(LOGIN_FN, "POST", {
     email: testEmail,

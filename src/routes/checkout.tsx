@@ -33,6 +33,7 @@ import { buildPageHead } from "@/lib/seo";
 import { getAccountProfile } from "@/server/profile";
 import { createUpiPayment, reportUpiPayment } from "@/server/payment";
 import { cn } from "@/lib/utils";
+import { migrateStorageKeys } from "@/lib/storage-migration";
 
 export const Route = createFileRoute("/checkout")({
   head: () =>
@@ -82,7 +83,7 @@ type CheckoutDraft = {
   receiptError: string | null;
 };
 
-const CHECKOUT_DRAFT_KEY = "vk_checkout_draft";
+const CHECKOUT_DRAFT_KEY = "rachelparadise_checkout_draft";
 const CHECKOUT_DRAFT_TTL_MS = 12 * 60 * 60 * 1000;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -273,6 +274,9 @@ function CheckoutPage() {
     const restoreCheckout = async () => {
       let savedDraft: CheckoutDraft | null = null;
       try {
+        migrateStorageKeys(sessionStorage, [
+          ["vk_checkout_draft", CHECKOUT_DRAFT_KEY],
+        ]);
         const storedDraft = sessionStorage.getItem(CHECKOUT_DRAFT_KEY);
         if (storedDraft) {
           const parsedDraft: unknown = JSON.parse(storedDraft);

@@ -38,7 +38,7 @@ const config = {
   port: Number(process.env.DATABASE_PORT ?? 3306),
   user: process.env.DATABASE_USER ?? "root",
   password: process.env.DATABASE_PASSWORD ?? "",
-  database: process.env.DATABASE_NAME ?? "vkstudio",
+  database: process.env.DATABASE_NAME ?? "rachelparadise",
 };
 
 const conn = await mysql.createConnection(config);

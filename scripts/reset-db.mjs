@@ -37,7 +37,7 @@ function loadEnvFile(path) {
 
 loadEnvFile(envPath);
 
-const dbName = process.env.DATABASE_NAME ?? "vk_studio";
+const dbName = process.env.DATABASE_NAME ?? "rachelparadise";
 const host = process.env.DATABASE_HOST ?? "localhost";
 const port = Number(process.env.DATABASE_PORT ?? 3306);
 const appUser = process.env.DATABASE_USER ?? "admin";

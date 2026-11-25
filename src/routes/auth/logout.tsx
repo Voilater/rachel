@@ -63,10 +63,22 @@ export const Route = createFileRoute("/auth/logout")({
   </form>
   <script>
     try {
-      sessionStorage.setItem("vk_logged_out", "1");
-      localStorage.removeItem("vk_client_session");
-      localStorage.removeItem("vk_cart");
-      localStorage.removeItem("vk_guest_id");
+      const migrate = (storage, oldKey, newKey) => {
+        const oldValue = storage.getItem(oldKey);
+        if (oldValue !== null) {
+          if (storage.getItem(newKey) === null) storage.setItem(newKey, oldValue);
+          storage.removeItem(oldKey);
+        }
+      };
+      migrate(sessionStorage, "vk_logged_out", "rachelparadise_logged_out");
+      migrate(sessionStorage, "vk_logging_out", "rachelparadise_logging_out");
+      sessionStorage.setItem("rachelparadise_logged_out", "1");
+      migrate(localStorage, "vk_client_session", "rachelparadise_client_session");
+      migrate(localStorage, "vk_cart", "rachelparadise_cart");
+      migrate(localStorage, "vk_guest_id", "rachelparadise_guest_id");
+      localStorage.removeItem("rachelparadise_client_session");
+      localStorage.removeItem("rachelparadise_cart");
+      localStorage.removeItem("rachelparadise_guest_id");
     } catch (e) {}
     document.getElementById("signout").submit();
   </script>

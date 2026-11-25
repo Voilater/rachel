@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { BeadStrandCard } from "@/components/BeadStrandCard";
 import { InstagramReelStrip } from "@/components/InstagramReelStrip";
 import { TestimonialCard } from "@/components/TestimonialCard";
-import { VkProductCard } from "@/components/VkProductCard";
+import { ProductCard } from "@/components/ProductCard";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { useInventory } from "@/lib/inventory-store";
 import { getStaticReelViews } from "@/lib/static-reel-views";
@@ -193,7 +193,7 @@ function HomePage() {
             <div className="mt-12 grid auto-rows-fr items-stretch gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {trending.map((product) => (
                 <div key={product.id} className="h-full">
-                  <VkProductCard product={product} />
+                  <ProductCard product={product} />
                 </div>
               ))}
             </div>
@@ -221,7 +221,7 @@ function HomePage() {
             <div className="mt-12 grid auto-rows-fr items-stretch gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {paletteCards.map((product) => (
                 <div key={product.id} className="h-full">
-                  <VkProductCard product={product} />
+                  <ProductCard product={product} />
                 </div>
               ))}
             </div>
@@ -256,7 +256,7 @@ function HomePage() {
             <div className="mt-12 grid auto-rows-fr items-stretch gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {recommended.map((product) => (
                 <div key={`rec-${product.id}`} className="h-full">
-                  <VkProductCard product={product} />
+                  <ProductCard product={product} />
                 </div>
               ))}
             </div>

@@ -5,7 +5,7 @@ export function catalogToInventoryItem(product: ShopProduct): InventoryItem {
   return {
     ...product,
     stock: product.stock ?? 12,
-    sku: product.sku ?? `VK-${product.id.slice(0, 8).toUpperCase()}`,
+    sku: product.sku ?? `RP-${product.id.slice(0, 8).toUpperCase()}`,
   };
 }
 

@@ -4,8 +4,9 @@ import { useRouterState } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
 import { logClientAudit } from "@/lib/client-audit";
 import { isLoggedOutFlagSet } from "@/lib/logout-state";
+import { migrateStorageKeys } from "@/lib/storage-migration";
 
-const OAUTH_PENDING_KEY = "vk_oauth_pending";
+const OAUTH_PENDING_KEY = "rachelparadise_oauth_pending";
 
 /** Keeps local client session in sync after Google OAuth (cookie-based). */
 export function ClientSessionSync() {
@@ -24,6 +25,9 @@ export function ClientSessionSync() {
 
   useEffect(() => {
     if (typeof sessionStorage === "undefined") return;
+    migrateStorageKeys(sessionStorage, [
+      ["vk_oauth_pending", OAUTH_PENDING_KEY],
+    ]);
     if (!clientUser || loggedOAuth.current) return;
 
     const pending = sessionStorage.getItem(OAUTH_PENDING_KEY);

@@ -1,4 +1,5 @@
 import type { DeliveryMethod } from "@/lib/order-totals";
+import { migrateStorageKeys } from "@/lib/storage-migration";
 
 export interface ConfirmedOrderItem {
   name: string;
@@ -21,7 +22,12 @@ export interface ConfirmedOrder {
   paymentStatus?: "pending" | "paid" | "rejected";
 }
 
-const STORAGE_KEY = "vk_last_order";
+const STORAGE_KEY = "rachelparadise_last_order";
+
+function migrateOrderStorage() {
+  if (typeof sessionStorage === "undefined") return;
+  migrateStorageKeys(sessionStorage, [["vk_last_order", STORAGE_KEY]]);
+}
 
 export function generateOrderNumber() {
   const timestamp = Date.now().toString(36).toUpperCase();
@@ -69,11 +75,13 @@ export function getDeliveryLabel(delivery: DeliveryMethod) {
 
 export function saveConfirmedOrder(order: ConfirmedOrder) {
   if (typeof sessionStorage === "undefined") return;
+  migrateOrderStorage();
   sessionStorage.setItem(STORAGE_KEY, JSON.stringify(order));
 }
 
 export function loadConfirmedOrder(): ConfirmedOrder | null {
   if (typeof sessionStorage === "undefined") return null;
+  migrateOrderStorage();
   const raw = sessionStorage.getItem(STORAGE_KEY);
   if (!raw) return null;
   try {

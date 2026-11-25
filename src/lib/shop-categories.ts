@@ -65,10 +65,10 @@ export function generateSku(name: string, existingSkus: Iterable<string> = []): 
   const used = new Set(
     [...existingSkus].map((sku) => sku.trim().toUpperCase()).filter(Boolean),
   );
-  let candidate = `VK-${base}`;
+  let candidate = `RP-${base}`;
   let n = 2;
   while (used.has(candidate.toUpperCase())) {
-    candidate = `VK-${base}-${n}`;
+    candidate = `RP-${base}-${n}`;
     n += 1;
   }
   return candidate;
