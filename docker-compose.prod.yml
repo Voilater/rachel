@@ -1,5 +1,5 @@
 # Production compose — pulls app image from ECR (no local build).
-# Used by scripts/deploy-server.sh
+# Generic production stack for servers that do not need the Lightsail resource limits.
 
 name: rachelparadise
 
