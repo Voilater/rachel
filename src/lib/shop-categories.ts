@@ -4,6 +4,7 @@ export type ShopCategory = string;
 export const DEFAULT_SHOP_CATEGORIES = [
   "Bracelets",
   "Chain",
+  "Charms",
   "Beads",
   "Raw materials",
   "Fancy beads",
