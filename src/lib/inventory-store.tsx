@@ -86,21 +86,22 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
 
     setLoading(true);
     setError(null);
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     try {
       const rows = await Promise.race([
         listProducts(),
-        new Promise<Awaited<ReturnType<typeof listProducts>>>((_, reject) => {
-          setTimeout(
+        new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(
             () => reject(new Error("Product request timed out.")),
-            4000,
+            30000,
           );
         }),
       ]);
       setProducts(rows.map(toInventoryItem));
     } catch {
-      setProducts([]);
-      setError("We couldn't load the collection. Please try again.");
+      setError("We couldn't load inventory. Please try again.");
     } finally {
+      if (timeoutId) clearTimeout(timeoutId);
       setLoading(false);
       setReady(true);
     }

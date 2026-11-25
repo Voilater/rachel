@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Minus, Pencil, Plus, Trash2, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ProductImageField } from "@/components/admin/ProductImageField";
 import { useInventory, type InventoryItem } from "@/lib/inventory-store";
@@ -50,12 +50,17 @@ function isKnownCategory(value: string, options: string[]) {
 function AdminInventoryPage() {
   const {
     products,
+    ready,
+    loading,
+    error,
+    refresh,
     addProduct,
     updateProduct,
     deleteProduct,
     adjustStock,
   } = useInventory();
 
+  const refreshOnEntry = useRef(ready);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -65,6 +70,10 @@ function AdminInventoryPage() {
   ]);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (refreshOnEntry.current) void refresh();
+  }, [refresh]);
 
   useEffect(() => {
     let cancelled = false;
@@ -178,15 +187,35 @@ function AdminInventoryPage() {
           <p className="mt-2 text-sm text-muted-foreground md:text-base">
             {products.length} products in catalog
           </p>
+          {loading && (
+            <p className="mt-1 text-sm text-muted-foreground" role="status">
+              {products.length > 0 ? "Refreshing inventory…" : "Loading inventory…"}
+            </p>
+          )}
+          {error && (
+            <p className="mt-1 text-sm text-red-600" role="alert">
+              {error}
+            </p>
+          )}
         </div>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-burgundy px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:opacity-90 sm:w-auto"
-        >
-          <Plus className="size-4" />
-          Add Product
-        </button>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            disabled={loading}
+            className="flex w-full items-center justify-center rounded-lg border border-border px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-foreground hover:bg-blush-section disabled:opacity-60 sm:w-auto"
+          >
+            {loading ? "Refreshing…" : "Refresh"}
+          </button>
+          <button
+            type="button"
+            onClick={openCreate}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-burgundy px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:opacity-90 sm:w-auto"
+          >
+            <Plus className="size-4" />
+            Add Product
+          </button>
+        </div>
       </div>
 
       <input
