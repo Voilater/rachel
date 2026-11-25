@@ -85,6 +85,10 @@ function slugify(name: string) {
     .replace(/(^-|-$)/g, "");
 }
 
+function normalizeProductSku(sku: string) {
+  return sku.replace(/^VK-/i, "RP-");
+}
+
 type ProductInput = {
   id?: string;
   name: string;
@@ -127,7 +131,7 @@ export const createProduct = createServerFn({ method: "POST" })
       [
         id,
         data.name,
-        data.sku,
+        normalizeProductSku(data.sku),
         normalizeShopCategory(data.category),
         data.price,
         data.stock,
@@ -162,7 +166,7 @@ export const updateProductById = createServerFn({ method: "POST" })
       WHERE id = ?`,
       [
         patch.name ?? existing.name,
-        patch.sku ?? existing.sku,
+        normalizeProductSku(patch.sku ?? existing.sku),
         patch.category != null
           ? normalizeShopCategory(patch.category)
           : existing.category,
