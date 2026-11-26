@@ -1,6 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import type { ShopCategory } from "@/lib/shop-categories";
+import {
+  DEFAULT_PRODUCT_WEIGHT_GRAMS,
+  MAX_PRODUCT_WEIGHT_GRAMS,
+} from "@/lib/order-totals";
 import { normalizeShopCategory } from "@/lib/shop-categories";
 import { execute, query, queryOne } from "@/server/db";
 
@@ -18,6 +22,7 @@ export interface ProductRow {
   featured: boolean;
   cart_price: number | null;
   cart_subtitle: string | null;
+  weight_grams: number;
   extra_json: string | Record<string, unknown> | null;
 }
 
@@ -35,6 +40,7 @@ export interface DbProduct {
   featured?: boolean;
   cartPrice?: number;
   cartSubtitle?: string;
+  weightGrams: number;
   images?: string[];
   longDescription?: string;
   reviewCount?: number;
@@ -70,6 +76,7 @@ export function mapProductRow(row: ProductRow): DbProduct {
     featured: Boolean(row.featured),
     cartPrice: row.cart_price != null ? Number(row.cart_price) : undefined,
     cartSubtitle: row.cart_subtitle ?? undefined,
+    weightGrams: Number(row.weight_grams) || DEFAULT_PRODUCT_WEIGHT_GRAMS,
     images: extra.images as string[] | undefined,
     longDescription: extra.longDescription as string | undefined,
     reviewCount: extra.reviewCount as number | undefined,
@@ -103,7 +110,18 @@ type ProductInput = {
   featured?: boolean;
   cartPrice?: number;
   cartSubtitle?: string;
+  weightGrams: number;
 };
+
+function validateProductWeight(weightGrams: number) {
+  if (
+    !Number.isSafeInteger(weightGrams) ||
+    weightGrams < 1 ||
+    weightGrams > MAX_PRODUCT_WEIGHT_GRAMS
+  ) {
+    throw new Error("Enter a product weight between 1 g and 1,000,000 g.");
+  }
+}
 
 export const listProducts = createServerFn({ method: "GET" }).handler(async () => {
   const rows = await query<ProductRow>("SELECT * FROM products ORDER BY created_at DESC");
@@ -120,14 +138,15 @@ export const getProductById = createServerFn({ method: "GET" })
 export const createProduct = createServerFn({ method: "POST" })
   .validator((data: ProductInput) => data)
   .handler(async ({ data }) => {
+    validateProductWeight(data.weightGrams);
     const id = data.id ?? slugify(data.name);
     const extra = JSON.stringify({});
 
     await execute(
       `INSERT INTO products (
         id, name, sku, category, price, stock, description, image, rating,
-        badge, featured, cart_price, cart_subtitle, extra_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        badge, featured, cart_price, cart_subtitle, weight_grams, extra_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         data.name,
@@ -142,6 +161,7 @@ export const createProduct = createServerFn({ method: "POST" })
         data.featured ?? false,
         data.cartPrice ?? data.price,
         data.cartSubtitle ?? null,
+        data.weightGrams,
         extra,
       ],
     );
@@ -158,11 +178,13 @@ export const updateProductById = createServerFn({ method: "POST" })
     if (!existing) throw new Error("Product not found.");
 
     const patch = data.patch;
+    const weightGrams = patch.weightGrams ?? existing.weight_grams;
+    validateProductWeight(weightGrams);
     await execute(
       `UPDATE products SET
         name = ?, sku = ?, category = ?, price = ?, stock = ?,
         description = ?, image = ?, rating = ?, badge = ?, featured = ?,
-        cart_price = ?, cart_subtitle = ?
+        cart_price = ?, cart_subtitle = ?, weight_grams = ?
       WHERE id = ?`,
       [
         patch.name ?? existing.name,
@@ -180,6 +202,7 @@ export const updateProductById = createServerFn({ method: "POST" })
         patch.cartPrice ??
           (patch.price !== undefined ? patch.price : existing.cart_price),
         patch.cartSubtitle ?? existing.cart_subtitle,
+        weightGrams,
         data.id,
       ],
     );

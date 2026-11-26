@@ -8,6 +8,7 @@ import { JsonLd } from "@/components/JsonLd";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { useCart } from "@/lib/cart";
 import { toInventoryItem, useInventory } from "@/lib/inventory-store";
+import { formatWeightGrams } from "@/lib/order-totals";
 import { isTestOnlyProduct } from "@/lib/shop-filters";
 import {
   breadcrumbJsonLd,
@@ -212,6 +213,11 @@ function ProductDetailPage() {
                 </span>
               )}
             </p>
+            {product.weightGrams ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Product weight: {formatWeightGrams(product.weightGrams)}
+              </p>
+            ) : null}
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
               {product.longDescription ?? product.description}
             </p>

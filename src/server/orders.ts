@@ -22,6 +22,8 @@ export interface CreateOrderInput {
   estimatedDelivery: string;
   subtotal: number;
   shipping: number;
+  processingFee?: number;
+  shipmentWeightGrams?: number;
   tax: number;
   total: number;
   items: Array<ConfirmedOrderItem & { productId?: string }>;
@@ -55,6 +57,8 @@ export interface StoredOrderDto {
   estimatedDelivery: string;
   subtotal: number;
   shipping: number;
+  processingFee: number;
+  shipmentWeightGrams: number;
   tax: number;
   total: number;
   items: ConfirmedOrderItem[];

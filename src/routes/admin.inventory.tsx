@@ -10,6 +10,10 @@ import {
   mergeShopCategories,
   type ShopCategory,
 } from "@/lib/shop-categories";
+import {
+  DEFAULT_PRODUCT_WEIGHT_GRAMS,
+  MAX_PRODUCT_WEIGHT_GRAMS,
+} from "@/lib/order-totals";
 import { formatPrice, siteConfig } from "@/lib/site-data";
 import { addShopCategory, getShopCategoryOptions } from "@/server/categories";
 
@@ -28,6 +32,7 @@ type FormState = {
   customCategory: string;
   price: string;
   stock: string;
+  weightGrams: string;
   description: string;
   image: string;
 };
@@ -39,6 +44,7 @@ const emptyForm: FormState = {
   customCategory: "",
   price: "",
   stock: "10",
+  weightGrams: String(DEFAULT_PRODUCT_WEIGHT_GRAMS),
   description: "",
   image: "/images/name-bracelet.png",
 };
@@ -120,6 +126,7 @@ function AdminInventoryPage() {
       customCategory: known ? "" : product.category,
       price: String(product.price),
       stock: String(product.stock),
+      weightGrams: String(product.weightGrams),
       description: product.description,
       image: product.image,
     });
@@ -143,8 +150,17 @@ function AdminInventoryPage() {
   const handleSave = async () => {
     const price = Number(form.price);
     const stock = Number(form.stock);
+    const weightGrams = Number(form.weightGrams);
     if (!form.name.trim() || !Number.isFinite(price) || !Number.isFinite(stock) || !form.image.trim()) {
       setFormError("Name, price, stock, and image are required.");
+      return;
+    }
+    if (
+      !Number.isSafeInteger(weightGrams) ||
+      weightGrams < 1 ||
+      weightGrams > MAX_PRODUCT_WEIGHT_GRAMS
+    ) {
+      setFormError("Enter a product weight between 1 g and 1,000,000 g.");
       return;
     }
 
@@ -160,6 +176,7 @@ function AdminInventoryPage() {
         category,
         price,
         stock,
+        weightGrams,
         description: form.description.trim() || form.name.trim(),
         image: form.image.trim(),
         rating: 4.5,
@@ -243,6 +260,9 @@ function AdminInventoryPage() {
                 <p className="mt-1 text-xs text-muted-foreground">{product.sku}</p>
                 <p className="mt-2 text-sm text-muted-foreground">{product.category}</p>
                 <p className="mt-2 font-semibold text-burgundy">{formatPrice(product.price)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Weight: {product.weightGrams} g
+                </p>
               </div>
             </div>
 
@@ -302,13 +322,14 @@ function AdminInventoryPage() {
       </div>
 
       <div className="mt-6 hidden overflow-x-auto rounded-2xl border border-border bg-white md:block">
-        <table className="min-w-[720px] w-full text-left text-sm">
+        <table className="min-w-[820px] w-full text-left text-sm">
           <thead className="border-b border-border bg-blush-section/50 text-xs uppercase tracking-wider text-muted-foreground">
             <tr>
               <th className="px-4 py-3">Product</th>
               <th className="px-4 py-3">SKU</th>
               <th className="px-4 py-3">Category</th>
               <th className="px-4 py-3">Price</th>
+              <th className="px-4 py-3">Weight</th>
               <th className="px-4 py-3">Stock</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
@@ -329,6 +350,7 @@ function AdminInventoryPage() {
                 <td className="px-4 py-3 text-muted-foreground">{product.sku}</td>
                 <td className="px-4 py-3">{product.category}</td>
                 <td className="px-4 py-3">{formatPrice(product.price)}</td>
+                <td className="px-4 py-3">{product.weightGrams} g</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     <button
@@ -482,6 +504,27 @@ function AdminInventoryPage() {
                   className="rounded-lg border border-border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
                 />
               </div>
+              <label className="block text-sm">
+                <span className="mb-1.5 block font-medium text-foreground">
+                  Product weight (grams)
+                </span>
+                <input
+                  type="number"
+                  min={1}
+                  max={MAX_PRODUCT_WEIGHT_GRAMS}
+                  step={1}
+                  required
+                  value={form.weightGrams}
+                  onChange={(e) =>
+                    setForm({ ...form, weightGrams: e.target.value })
+                  }
+                  className="w-full rounded-lg border border-border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-burgundy/20"
+                />
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  Used to calculate courier charges. Existing products start at
+                  an estimated 100 g; update to the packed item weight.
+                </span>
+              </label>
               <textarea
                 placeholder="Description"
                 rows={3}

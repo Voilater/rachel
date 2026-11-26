@@ -25,6 +25,8 @@ interface OrderRow {
   estimated_delivery: string;
   subtotal: number;
   shipping_cost: number;
+  processing_fee: number;
+  shipment_weight_grams: number;
   tax: number;
   total: number;
   status: OrderStatus;
@@ -43,6 +45,7 @@ interface OrderItemRow {
   image: string | null;
   quantity: number;
   line_price: number;
+  weight_grams: number;
 }
 
 async function loadOrderItems(orderId: string): Promise<ConfirmedOrderItem[]> {
@@ -56,6 +59,7 @@ async function loadOrderItems(orderId: string): Promise<ConfirmedOrderItem[]> {
     image: row.image ?? "",
     quantity: row.quantity,
     linePrice: Number(row.line_price),
+    weightGrams: Number(row.weight_grams) || undefined,
   }));
 }
 
@@ -88,6 +92,8 @@ function mapOrderRow(
     estimatedDelivery: row.estimated_delivery,
     subtotal: Number(row.subtotal),
     shipping: Number(row.shipping_cost),
+    processingFee: Number(row.processing_fee),
+    shipmentWeightGrams: Number(row.shipment_weight_grams),
     tax: Number(row.tax),
     total: Number(row.total),
     items,
@@ -174,9 +180,10 @@ export async function createOrderImpl(
         id, order_number, user_id, customer_name, customer_email, customer_phone,
         is_guest, shipping_street, shipping_city, shipping_zip,
         delivery_method, delivery_label, estimated_delivery,
-        subtotal, shipping_cost, tax, total, status,
+        subtotal, shipping_cost, processing_fee, shipment_weight_grams,
+        tax, total, status,
         payment_provider, payment_id, payment_transaction_reference, payment_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?)`,
       [
         id,
         data.orderNumber,
@@ -193,6 +200,8 @@ export async function createOrderImpl(
         data.estimatedDelivery,
         data.subtotal,
         data.shipping,
+        data.processingFee ?? 0,
+        data.shipmentWeightGrams ?? 0,
         data.tax,
         data.total,
         data.payment?.provider ?? null,
@@ -205,8 +214,9 @@ export async function createOrderImpl(
     for (const item of data.items) {
       await connection.execute(
         `INSERT INTO order_items (
-          order_id, product_id, name, subtitle, image, quantity, line_price
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          order_id, product_id, name, subtitle, image, quantity, line_price,
+          weight_grams
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id,
           item.productId ?? null,
@@ -215,6 +225,7 @@ export async function createOrderImpl(
           item.image,
           item.quantity,
           item.linePrice,
+          item.weightGrams ?? 0,
         ],
       );
 

@@ -10,6 +10,7 @@ import {
 
 import { staticInventoryItems } from "@/lib/static-catalog";
 import { isStaticSite } from "@/lib/static-site";
+import { DEFAULT_PRODUCT_WEIGHT_GRAMS } from "@/lib/order-totals";
 import type { ShopCategory, ShopProduct } from "@/lib/site-data";
 import {
   adjustProductStock,
@@ -23,6 +24,7 @@ import {
 export interface InventoryItem extends ShopProduct {
   stock: number;
   sku: string;
+  weightGrams: number;
 }
 
 interface InventoryContextValue {
@@ -51,6 +53,7 @@ export function toInventoryItem(product: DbProduct): InventoryItem {
     category: product.category,
     price: product.price,
     stock: product.stock,
+    weightGrams: product.weightGrams ?? DEFAULT_PRODUCT_WEIGHT_GRAMS,
     description: product.description,
     image: product.image,
     rating: product.rating,
@@ -149,6 +152,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
           featured: input.featured,
           cartPrice: input.cartPrice,
           cartSubtitle: input.cartSubtitle,
+          weightGrams: input.weightGrams,
         },
       });
       const item = toInventoryItem(created);
@@ -175,6 +179,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
           featured: patch.featured,
           cartPrice: patch.cartPrice,
           cartSubtitle: patch.cartSubtitle,
+          weightGrams: patch.weightGrams,
         },
       },
     });

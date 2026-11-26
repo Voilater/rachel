@@ -9,6 +9,7 @@ import {
   loadConfirmedOrder,
   type ConfirmedOrder,
 } from "@/lib/order-confirmation";
+import { formatWeightGrams } from "@/lib/order-totals";
 import { formatPrice, siteConfig } from "@/lib/site-data";
 
 const JOURNAL_IMAGE = "/images/name-bracelet.png";
@@ -131,6 +132,9 @@ function CheckoutSuccessPage() {
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
                           Qty: {item.quantity}
+                          {item.weightGrams
+                            ? ` · ${formatWeightGrams(item.weightGrams)} each`
+                            : ""}
                         </p>
                       </div>
                     </div>
@@ -153,6 +157,22 @@ function CheckoutSuccessPage() {
                   : formatPrice(order.shipping)}
               </dd>
             </div>
+            {order.processingFee ? (
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Processing fee</dt>
+                <dd className="font-medium">
+                  {formatPrice(order.processingFee)}
+                </dd>
+              </div>
+            ) : null}
+            {order.shipmentWeightGrams ? (
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Shipment weight</dt>
+                <dd className="font-medium">
+                  {formatWeightGrams(order.shipmentWeightGrams)}
+                </dd>
+              </div>
+            ) : null}
             <div className="flex justify-between border-t border-burgundy/10 pt-4 text-base">
               <dt className="font-semibold text-foreground">Total</dt>
               <dd className="font-serif text-xl font-semibold text-burgundy">

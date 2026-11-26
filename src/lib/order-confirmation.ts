@@ -7,6 +7,7 @@ export interface ConfirmedOrderItem {
   image: string;
   quantity: number;
   linePrice: number;
+  weightGrams?: number;
 }
 
 export interface ConfirmedOrder {
@@ -16,6 +17,8 @@ export interface ConfirmedOrder {
   estimatedDelivery: string;
   subtotal: number;
   shipping: number;
+  processingFee?: number;
+  shipmentWeightGrams?: number;
   tax: number;
   total: number;
   items: ConfirmedOrderItem[];
@@ -63,14 +66,29 @@ function getOrdinalSuffix(day: number) {
 }
 
 export function getEstimatedDelivery(delivery: DeliveryMethod) {
-  const businessDays = delivery === "express" ? 2 : 7;
+  const businessDays =
+    delivery === "express"
+      ? 2
+      : delivery === "st-courier" || delivery === "professional-courier"
+        ? 5
+        : 7;
   const arrival = addBusinessDays(new Date(), businessDays);
   return formatDeliveryDate(arrival);
 }
 
 export function getDeliveryLabel(delivery: DeliveryMethod) {
-  if (delivery === "express") return "Express Shipping";
-  return "Standard Insured Shipping";
+  switch (delivery) {
+    case "st-courier":
+      return "ST Courier";
+    case "professional-courier":
+      return "Professional Courier";
+    case "india-post":
+      return "India Post";
+    case "express":
+      return "Express Shipping";
+    default:
+      return "Standard Insured Shipping";
+  }
 }
 
 export function saveConfirmedOrder(order: ConfirmedOrder) {

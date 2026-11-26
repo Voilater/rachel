@@ -69,6 +69,7 @@ export interface ShopProduct {
   cartSubtitle?: string;
   stock?: number;
   sku?: string;
+  weightGrams?: number;
 }
 
 export const coreShopProducts: ShopProduct[] = [

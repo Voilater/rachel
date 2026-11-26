@@ -11,6 +11,7 @@ import {
   useOrders,
 } from "@/lib/orders-store";
 import { formatIntention } from "@/lib/order-confirmation";
+import { formatWeightGrams } from "@/lib/order-totals";
 import type { PaymentReceiptOcrResult } from "@/lib/payment-receipt-ocr";
 import { formatPrice, siteConfig } from "@/lib/site-data";
 import { getUpiPaymentReport } from "@/server/payment";
@@ -663,6 +664,9 @@ function OrderDetailModal({
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Qty: {item.quantity}
+                    {item.weightGrams
+                      ? ` · ${formatWeightGrams(item.weightGrams)} each`
+                      : ""}
                   </p>
                 </div>
                 <p className="font-semibold sm:text-right">
@@ -683,6 +687,20 @@ function OrderDetailModal({
                 {order.shipping === 0 ? "FREE" : formatPrice(order.shipping)}
               </dd>
             </div>
+            {order.processingFee > 0 ? (
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Processing fee</dt>
+                <dd>{formatPrice(order.processingFee)}</dd>
+              </div>
+            ) : null}
+            {order.shipmentWeightGrams > 0 ? (
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Shipment weight</dt>
+                <dd>
+                  {formatWeightGrams(order.shipmentWeightGrams)}
+                </dd>
+              </div>
+            ) : null}
             <div className="flex justify-between">
               <dt className="text-muted-foreground">Tax</dt>
               <dd>{formatPrice(order.tax)}</dd>

@@ -9,8 +9,11 @@ import { useAuth } from "@/lib/auth";
 import { getCartItemKey, useCart, type CartItem } from "@/lib/cart";
 import { logClientAudit } from "@/lib/client-audit";
 import {
+  DEFAULT_PRODUCT_WEIGHT_GRAMS,
   computeOrderTotals,
   deliveryOptions,
+  formatWeightGrams,
+  type CourierMethod,
   type DeliveryMethod,
 } from "@/lib/order-totals";
 import {
@@ -137,7 +140,11 @@ function isCheckoutDraft(value: unknown): value is CheckoutDraft {
     typeof value.city === "string" &&
     typeof value.zip === "string" &&
     typeof value.phone === "string" &&
-    (value.delivery === "standard" || value.delivery === "express") &&
+    (value.delivery === "st-courier" ||
+      value.delivery === "professional-courier" ||
+      value.delivery === "india-post" ||
+      value.delivery === "standard" ||
+      value.delivery === "express") &&
     typeof value.billingSameAsShipping === "boolean" &&
     typeof value.promoCode === "string" &&
     (value.paymentCartFingerprint === null ||
@@ -150,7 +157,7 @@ function isCheckoutDraft(value: unknown): value is CheckoutDraft {
 
 function getCartFingerprint(
   items: CartItem[],
-  delivery: DeliveryMethod,
+  delivery: CourierMethod,
 ) {
   return JSON.stringify({
     delivery,
@@ -161,6 +168,8 @@ function getCartFingerprint(
         size: item.size,
         colorId: item.colorId,
         linePrice: item.linePrice,
+        weightGrams:
+          item.product.weightGrams ?? DEFAULT_PRODUCT_WEIGHT_GRAMS,
       }))
       .sort(
         (a, b) =>
@@ -225,7 +234,7 @@ function CheckoutPage() {
   const navigate = useNavigate();
   const { items, clearCart, ready: cartReady } = useCart();
   const { clientUser } = useAuth();
-  const [delivery, setDelivery] = useState<DeliveryMethod>("standard");
+  const [delivery, setDelivery] = useState<CourierMethod>("st-courier");
   const [billingSameAsShipping, setBillingSameAsShipping] = useState(true);
   const [promoCode, setPromoCode] = useState("");
   const [isPaying, setIsPaying] = useState(false);
@@ -300,16 +309,24 @@ function CheckoutPage() {
       if (cancelled) return;
 
       if (savedDraft) {
+        const draftDelivery: CourierMethod =
+          savedDraft.delivery === "standard"
+            ? "india-post"
+            : savedDraft.delivery === "express"
+              ? "professional-courier"
+              : savedDraft.delivery;
+        const hasCurrentDelivery = savedDraft.delivery === draftDelivery;
         const canRestorePayment =
           savedDraft.upiPayment !== null &&
+          hasCurrentDelivery &&
           savedDraft.paymentCartFingerprint ===
-            getCartFingerprint(items, savedDraft.delivery);
+            getCartFingerprint(items, draftDelivery);
         setFullName(savedDraft.fullName);
         setStreet(savedDraft.street);
         setCity(savedDraft.city);
         setZip(savedDraft.zip);
         setPhone(savedDraft.phone);
-        setDelivery(savedDraft.delivery);
+        setDelivery(draftDelivery);
         setBillingSameAsShipping(savedDraft.billingSameAsShipping);
         setPromoCode(savedDraft.promoCode);
         setUpiPayment(canRestorePayment ? savedDraft.upiPayment : null);
@@ -413,8 +430,21 @@ function CheckoutPage() {
     zip,
   ]);
 
-  const { subtotal, shipping, tax, total } = computeOrderTotals(
-    items,
+  const {
+    subtotal,
+    shipping,
+    processingFee,
+    shipmentWeightGrams,
+    billableWeightKg,
+    tax,
+    total,
+  } = computeOrderTotals(
+    items.map((item) => ({
+      linePrice: item.linePrice,
+      quantity: item.quantity,
+      weightGrams:
+        item.product.weightGrams ?? DEFAULT_PRODUCT_WEIGHT_GRAMS,
+    })),
     delivery,
   );
   const receiptMatchesPayment =
@@ -564,6 +594,8 @@ function CheckoutPage() {
         quantity: item.quantity,
         linePrice: item.linePrice,
         productId: item.product.id,
+        weightGrams:
+          item.product.weightGrams ?? DEFAULT_PRODUCT_WEIGHT_GRAMS,
       }));
 
       const completeDemoOrder = async () => {
@@ -574,6 +606,8 @@ function CheckoutPage() {
           estimatedDelivery: getEstimatedDelivery(delivery),
           subtotal,
           shipping,
+          processingFee,
+          shipmentWeightGrams,
           tax,
           total,
           items: orderItems,
@@ -609,6 +643,8 @@ function CheckoutPage() {
           estimatedDelivery: getEstimatedDelivery(delivery),
           subtotal,
           shipping,
+          processingFee,
+          shipmentWeightGrams,
           tax,
           total,
           items: orderItems,
@@ -926,17 +962,23 @@ function CheckoutPage() {
                   Delivery Method
                 </h2>
               </div>
+              <p className="mt-4 text-sm text-muted-foreground">
+                Product weight: {formatWeightGrams(shipmentWeightGrams)} total.
+                Courier charges are rounded up to {billableWeightKg} kg.
+              </p>
               <div className="mt-6 space-y-3">
                 {deliveryOptions.map((option) => (
                   <button
                     key={option.id}
                     type="button"
                     onClick={() => setDelivery(option.id)}
+                    disabled={Boolean(upiPayment)}
                     className={cn(
                       "w-full rounded-xl border-2 bg-white p-4 text-left transition-colors",
                       delivery === option.id
                         ? "border-burgundy"
                         : "border-transparent hover:border-border",
+                      upiPayment && "cursor-not-allowed opacity-60",
                     )}
                   >
                     <div className="flex items-start justify-between gap-4">
@@ -944,18 +986,15 @@ function CheckoutPage() {
                         <p className="font-medium text-foreground">
                           {option.label}{" "}
                           <span className="text-muted-foreground">
-                            (
-                            {option.price === 0
-                              ? "FREE"
-                              : formatPrice(option.price)}
-                            )
+                            ({formatPrice(option.pricePerKg)} / kg)
                           </span>
                         </p>
                         <p className="mt-1 text-sm text-muted-foreground">
                           {option.eta}
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          {option.note}
+                          {option.note} Estimated shipping:{" "}
+                          {formatPrice(option.pricePerKg * billableWeightKg)}.
                         </p>
                       </div>
                     </div>
@@ -1119,7 +1158,11 @@ function CheckoutPage() {
                       {item.product.name}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Qty: {item.quantity}
+                      {formatWeightGrams(
+                        (item.product.weightGrams ??
+                          DEFAULT_PRODUCT_WEIGHT_GRAMS) * item.quantity,
+                      )}{" "}
+                      total · Qty: {item.quantity}
                     </p>
                   </div>
                   <Price
@@ -1154,9 +1197,17 @@ function CheckoutPage() {
                 </dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">Shipping</dt>
+                <dt className="text-muted-foreground">
+                  Shipping ({deliveryOptions.find((option) => option.id === delivery)?.label})
+                </dt>
                 <dd className="font-medium">
-                  {shipping === 0 ? "FREE" : <Price amount={shipping} />}
+                  <Price amount={shipping} />
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Processing fee</dt>
+                <dd>
+                  <Price amount={processingFee} />
                 </dd>
               </div>
               <div className="flex justify-between gap-4">

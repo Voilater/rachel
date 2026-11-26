@@ -113,11 +113,21 @@ async function initializeSchema() {
       featured BOOLEAN NOT NULL DEFAULT FALSE,
       cart_price DECIMAL(10, 2) NULL,
       cart_subtitle VARCHAR(255) NULL,
+      weight_grams INT UNSIGNED NOT NULL DEFAULT 100,
       extra_json JSON NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )
   `);
+  await ensureColumn(
+    db,
+    "products",
+    "weight_grams",
+    "INT UNSIGNED NOT NULL DEFAULT 100",
+  );
+  await db.query(
+    "UPDATE products SET weight_grams = 100 WHERE weight_grams = 0",
+  );
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS orders (
@@ -136,6 +146,8 @@ async function initializeSchema() {
       estimated_delivery VARCHAR(255) NOT NULL,
       subtotal DECIMAL(10, 2) NOT NULL,
       shipping_cost DECIMAL(10, 2) NOT NULL,
+      processing_fee DECIMAL(10, 2) NOT NULL DEFAULT 0,
+      shipment_weight_grams INT UNSIGNED NOT NULL DEFAULT 0,
       tax DECIMAL(10, 2) NOT NULL,
       total DECIMAL(10, 2) NOT NULL,
       payment_provider VARCHAR(32) NULL,
@@ -173,9 +185,16 @@ async function initializeSchema() {
       image LONGTEXT NULL,
       quantity INT NOT NULL,
       line_price DECIMAL(10, 2) NOT NULL,
+      weight_grams INT UNSIGNED NOT NULL DEFAULT 0,
       FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
     )
   `);
+  await ensureColumn(
+    db,
+    "order_items",
+    "weight_grams",
+    "INT UNSIGNED NOT NULL DEFAULT 0",
+  );
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS audit_logs (
@@ -217,8 +236,38 @@ async function initializeSchema() {
 
   await migrateLegacyCategories(db);
   await ensureOrderPaymentColumns(db);
+  await ensureColumn(
+    db,
+    "orders",
+    "processing_fee",
+    "DECIMAL(10, 2) NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    db,
+    "orders",
+    "shipment_weight_grams",
+    "INT UNSIGNED NOT NULL DEFAULT 0",
+  );
 
   schemaReady = true;
+}
+
+async function ensureColumn(
+  db: mysql.Pool,
+  table: string,
+  column: string,
+  definition: string,
+) {
+  const [rows] = await db.query<mysql.RowDataPacket[]>(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+    [table, column],
+  );
+  if (rows.length === 0) {
+    await db.query(
+      `ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`,
+    );
+  }
 }
 
 async function ensureOrderPaymentColumns(db: mysql.Pool) {

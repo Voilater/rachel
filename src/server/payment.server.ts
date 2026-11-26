@@ -9,7 +9,10 @@ import {
 } from "@/lib/form-validation";
 import { isTestOnlyProduct } from "@/lib/shop-filters";
 import type { PaymentReceiptOcrResult } from "@/lib/payment-receipt-ocr";
-import { computeOrderTotals } from "@/lib/order-totals";
+import {
+  computeOrderTotals,
+  deliveryOptions,
+} from "@/lib/order-totals";
 import type { CreateOrderInput } from "@/server/orders";
 import { requireAdminSession } from "@/server/admin-session.server";
 import {
@@ -42,6 +45,7 @@ interface CheckoutProductRow {
   price: number;
   stock: number;
   badge: string | null;
+  weight_grams: number;
 }
 
 function assertOrderInput(data: CreateOrderInput) {
@@ -80,7 +84,11 @@ function assertOrderInput(data: CreateOrderInput) {
   ) {
     throw new Error("A complete shipping address is required.");
   }
-  if (data.deliveryMethod !== "standard" && data.deliveryMethod !== "express") {
+  if (
+    data.deliveryMethod !== "standard" &&
+    data.deliveryMethod !== "express" &&
+    !deliveryOptions.some((option) => option.id === data.deliveryMethod)
+  ) {
     throw new Error("Delivery method is invalid.");
   }
 
@@ -89,13 +97,24 @@ function assertOrderInput(data: CreateOrderInput) {
     throw new Error("Checkout totals are invalid.");
   }
   const expected = computeOrderTotals(
-    data.items.map(({ linePrice, quantity }) => ({ linePrice, quantity })),
+    data.items.map(({ linePrice, quantity, weightGrams }) => ({
+      linePrice,
+      quantity,
+      weightGrams,
+    })),
     data.deliveryMethod,
   );
   const round = (amount: number) => Math.round(amount * 100);
+  const usesCourierRates = deliveryOptions.some(
+    (option) => option.id === data.deliveryMethod,
+  );
   if (
     round(expected.subtotal) !== round(data.subtotal) ||
     round(expected.shipping) !== round(data.shipping) ||
+    round(expected.processingFee) !==
+      round(data.processingFee ?? (usesCourierRates ? Number.NaN : 0)) ||
+    (usesCourierRates &&
+      expected.shipmentWeightGrams !== data.shipmentWeightGrams) ||
     round(expected.tax) !== round(data.tax) ||
     round(expected.total) !== round(data.total)
   ) {
@@ -110,6 +129,11 @@ async function prepareOrderInput(
   data: CreateOrderInput,
 ): Promise<CreateOrderInput> {
   assertOrderInput(data);
+  if (
+    !deliveryOptions.some((option) => option.id === data.deliveryMethod)
+  ) {
+    throw new Error("Choose one of the available courier services.");
+  }
   const session = await resolveSessionUser();
   if (!session) throw new Error("Sign in again before starting payment.");
   if (
@@ -128,7 +152,7 @@ async function prepareOrderInput(
   }
   const placeholders = productIds.map(() => "?").join(", ");
   const products = await query<CheckoutProductRow>(
-    `SELECT id, name, image, price, stock, badge
+    `SELECT id, name, image, price, stock, badge, weight_grams
      FROM products WHERE id IN (${placeholders})`,
     productIds,
   );
@@ -158,6 +182,7 @@ async function prepareOrderInput(
       name: product.name,
       image: product.image,
       linePrice: unitPrice,
+      weightGrams: Number(product.weight_grams),
     };
   });
 
@@ -169,13 +194,19 @@ async function prepareOrderInput(
   }
 
   const totals = computeOrderTotals(
-    items.map(({ linePrice, quantity }) => ({ linePrice, quantity })),
+    items.map(({ linePrice, quantity, weightGrams }) => ({
+      linePrice,
+      quantity,
+      weightGrams,
+    })),
     data.deliveryMethod,
   );
   const round = (amount: number) => Math.round(amount * 100);
   if (
     round(totals.subtotal) !== round(data.subtotal) ||
     round(totals.shipping) !== round(data.shipping) ||
+    round(totals.processingFee) !== round(data.processingFee ?? Number.NaN) ||
+    totals.shipmentWeightGrams !== data.shipmentWeightGrams ||
     round(totals.tax) !== round(data.tax) ||
     round(totals.total) !== round(data.total)
   ) {
@@ -194,7 +225,12 @@ async function prepareOrderInput(
       isGuest: false,
     },
     items,
-    ...totals,
+    subtotal: totals.subtotal,
+    shipping: totals.shipping,
+    processingFee: totals.processingFee,
+    shipmentWeightGrams: totals.shipmentWeightGrams,
+    tax: totals.tax,
+    total: totals.total,
   };
 }
 
@@ -267,6 +303,8 @@ function toConfirmedOrder(
     estimatedDelivery: order.estimatedDelivery,
     subtotal: order.subtotal,
     shipping: order.shipping,
+    processingFee: order.processingFee,
+    shipmentWeightGrams: order.shipmentWeightGrams,
     tax: order.tax,
     total: order.total,
     items: order.items,
